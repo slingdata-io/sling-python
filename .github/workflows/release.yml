@@ -22,18 +22,16 @@ jobs:
       - name: Upload to PyPi
         run: |
           source /__/devbox/.env.sh
-          mkdir sling/bin/
+          mkdir sling/bin
 
+          cd sling/bin
           wget https://slingelt.n1sl.com/slingdata.io/dist/sling-linux
           wget https://slingelt.n1sl.com/slingdata.io/dist/sling-mac
           wget https://slingelt.n1sl.com/slingdata.io/dist/sling-win.exe
+          cd -
 
-          mv -f sling-mac sling/bin/
-          mv -f sling-linux sling/bin/
-          mv -f sling-win.exe sling/bin/
-          chmod -R 755 sling/bin/
+          chmod -R 755 sling/bin
 
-          cd python
           pip install -e .
           pip install twine
           python setup.py sdist && twine upload --verbose --skip-existing dist/*
