@@ -13,11 +13,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
-          python-version: '3.8'
-        
-      - uses: actions/download-artifact@v2
-        with:
-          name: sling-dist
+          python-version: '3.9'
 
       # see https://github.com/peter-evans/repository-dispatch
       # - name: Dispatch Payload
@@ -27,6 +23,10 @@ jobs:
         run: |
           source /__/devbox/.env.sh
           mkdir python/sling/bin/
+
+          wget https://slingelt.n1sl.com/slingdata.io/dist/sling-linux
+          wget https://slingelt.n1sl.com/slingdata.io/dist/sling-mac
+          wget https://slingelt.n1sl.com/slingdata.io/dist/sling-win.exe
 
           mv -f sling-mac python/sling/bin/
           mv -f sling-linux python/sling/bin/
