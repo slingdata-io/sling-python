@@ -11,10 +11,7 @@ if platform.system() == 'Linux':
 elif platform.system() == 'Windows':
   SLING_BIN = os.path.join(BIN_FOLDER,'sling-win.exe')
 elif platform.system() == 'Darwin':
-  if 'ARM64' in platform.version():
-    SLING_BIN = os.path.join(BIN_FOLDER,'sling-mac-arm64')
-  else:
-    SLING_BIN = os.path.join(BIN_FOLDER,'sling-mac-amd64')
+  SLING_BIN = os.path.join(BIN_FOLDER,'sling-mac')
 
 class JsonEncoder(JSONEncoder):
   def default(self, o):
