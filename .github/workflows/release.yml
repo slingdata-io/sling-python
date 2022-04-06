@@ -21,7 +21,11 @@ jobs:
         
       - name: Upload to PyPi
         run: |
+          ll
+          
           source /__/devbox/.env.sh
+
+          ll
           mkdir sling/bin
 
           cd sling/bin
