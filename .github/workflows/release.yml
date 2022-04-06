@@ -7,7 +7,6 @@ on:
 
 jobs:
   release-python:
-    needs: [release]
     runs-on: [self-hosted, Linux]
 
     steps:
