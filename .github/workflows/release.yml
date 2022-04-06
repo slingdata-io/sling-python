@@ -1,0 +1,40 @@
+name: Build & Release
+
+on: 
+  workflow_dispatch:
+  repository_dispatch:
+    types: [release-python]
+
+jobs:
+  release-python:
+    needs: [release]
+    runs-on: [self-hosted, Linux]
+
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.8'
+        
+      - uses: actions/download-artifact@v2
+        with:
+          name: sling-dist
+
+      # see https://github.com/peter-evans/repository-dispatch
+      # - name: Dispatch Payload
+      #   run: echo ${{ github.event.client_payload }}
+        
+      - name: Upload to PyPi
+        run: |
+          source /__/devbox/.env.sh
+          mkdir python/sling/bin/
+
+          mv -f sling-mac python/sling/bin/
+          mv -f sling-linux python/sling/bin/
+          mv -f sling-win.exe python/sling/bin/
+          chmod -R 755 python/sling/bin/
+
+          cd python
+          pip install -e .
+          pip install twine
+          python setup.py sdist && twine upload --verbose --skip-existing dist/*

@@ -92,14 +92,3 @@ An example. Put this in https://jsonschema.net/home
   }
 }
 ```
-
-## Release
-
-- Update version in [setup.py](./setup.py).
-
-```
-git clone https://github.com/flarco/sling
-cd sling/python
-pip install -e .
-rm -rf dist && python setup.py sdist && twine upload --verbose --skip-existing dist/*
-```
