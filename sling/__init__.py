@@ -42,12 +42,16 @@ class SourceOptions:
 class Source:
   conn: str
   stream: str
+  primary_key: List[str]
+  update_key: str
   limit: int
   options: SourceOptions
 
   def __init__(self, **kwargs) -> None:
     self.conn = kwargs.get('conn')
     self.stream = kwargs.get('stream')
+    self.primary_key = kwargs.get('primary_key')
+    self.update_key = kwargs.get('update_key')
     self.limit = kwargs.get('limit')
     self.options = SourceOptions(options=kwargs.get('options', {}))
 
@@ -85,16 +89,12 @@ class Target:
   object: str
   options: TargetOptions
   mode: str
-  primary_key: List[str]
-  update_key: str
 
   def __init__(self, **kwargs) -> None:
     self.conn = kwargs.get('conn')
     self.object = kwargs.get('object')
     self.options = TargetOptions(options=kwargs.get('options', {}))
     self.mode = kwargs.get('mode')
-    self.primary_key = kwargs.get('primary_key')
-    self.update_key = kwargs.get('update_key')
 
 class Options:
   stdout: bool
