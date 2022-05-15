@@ -15,7 +15,7 @@ Then you should be able to run `sling --help` from command line.
 ```shell
 sling run --src-conn MY_PG --src-stream myschema.mytable \
   --tgt-conn YOUR_SNOWFLAKE --tgt-object yourschema.yourtable \
-  --mode drop
+  --mode full-refresh
 ```
 
 Or passing a yaml/json string or file
@@ -30,7 +30,7 @@ target:
   conn: YOUR_SNOWFLAKE
   object: yourschema.yourtable
 
-mode: drop
+mode: full-refresh
 '
 # OR
 sling run -c /path/to/config.json
