@@ -29,7 +29,8 @@ source:
 target:
   conn: YOUR_SNOWFLAKE
   object: yourschema.yourtable
-  mode: drop
+
+mode: drop
 '
 # OR
 sling run -c /path/to/config.json

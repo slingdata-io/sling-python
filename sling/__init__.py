@@ -88,13 +88,11 @@ class Target:
   conn: str
   object: str
   options: TargetOptions
-  mode: str
 
   def __init__(self, **kwargs) -> None:
     self.conn = kwargs.get('conn')
     self.object = kwargs.get('object')
     self.options = TargetOptions(options=kwargs.get('options', {}))
-    self.mode = kwargs.get('mode')
 
 class Options:
   stdout: bool
@@ -118,7 +116,7 @@ class Sling:
 
   temp_file: str
 
-  def __init__(self, source: Union[Source, dict]={}, target: Union[Target, dict]={}, options: Union[Options, dict]={}) -> None:
+  def __init__(self, source: Union[Source, dict]={}, target: Union[Target, dict]={}, mode: str = 'append', options: Union[Options, dict]={}) -> None:
     if isinstance(source, dict):
       source = Source(**source)
     self.source = source
@@ -126,6 +124,8 @@ class Sling:
     if isinstance(target, dict):
       target = Target(**target)
     self.target = target
+
+    self.mode = mode
 
     if isinstance(options, dict):
       options = Options(**options)
