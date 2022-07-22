@@ -1,9 +1,12 @@
-import os
+import os, sys
 from setuptools import setup
 from setuptools import find_packages
 from sling import cli
 
 version = cli('--version', return_output=True).strip().replace('Version: ', '')
+
+if not version:
+  raise Exception('version is blank')
 
 setup(
   name='sling',
