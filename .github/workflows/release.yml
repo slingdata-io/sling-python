@@ -27,9 +27,9 @@ jobs:
           mkdir sling/bin
 
           cd sling/bin
-          wget -q https://files.ocral.org/slingdata.io/dist/sling-linux
-          wget -q https://files.ocral.org/slingdata.io/dist/sling-mac
-          wget -q https://files.ocral.org/slingdata.io/dist/sling-win.exe
+          wget -q https://ocral.nyc3.digitaloceanspaces.com/slingdata.io/dist/sling-linux
+          wget -q https://ocral.nyc3.digitaloceanspaces.com/slingdata.io/dist/sling-mac
+          wget -q https://ocral.nyc3.digitaloceanspaces.com/slingdata.io/dist/sling-win.exe
           cd -
 
           chmod -R 755 sling/bin
