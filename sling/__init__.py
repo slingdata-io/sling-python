@@ -21,6 +21,7 @@ class SourceOptions:
   trim_space: bool
   empty_as_null: bool
   header: bool
+  flatten: bool
   compression: str
   null_if: str
   datetime_format: str
@@ -32,6 +33,7 @@ class SourceOptions:
     self.trim_space = kwargs.get('trim_space')
     self.empty_as_null = kwargs.get('empty_as_null')
     self.header = kwargs.get('header')
+    self.flatten = kwargs.get('flatten')
     self.compression = kwargs.get('compression')
     self.null_if = kwargs.get('null_if')
     self.datetime_format = kwargs.get('datetime_format')
