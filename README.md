@@ -1,4 +1,4 @@
-<p align="center"><img src="logo-with-text.png" alt="drawing" width="250"/></p>
+<p align="center"><img src="https://github.com/slingdata-io/sling-python/raw/main/logo-with-text.png" alt="logo" width="250"/></p>
 
 <p align="center">Slings from a data source to a data target.</p>
 
@@ -55,8 +55,6 @@ Sling(**config).run()
 ```
 
 ## Config Schema
-
-An example. Put this in https://jsonschema.net/home
 
 `--src-conn`/`source.conn` and `--tgt-conn`/`target.conn`  can be a name or URL of a folder:
 - `MY_PG` (connection ref in db, profile or env)
