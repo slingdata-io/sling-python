@@ -68,6 +68,7 @@ class TargetOptions:
   max_decimals: int
   use_bulk: bool
   add_new_columns: bool
+  adjust_column_type: bool
   table_ddl: str
   table_tmp: str
   pre_sql: str
@@ -83,6 +84,7 @@ class TargetOptions:
     self.max_decimals = kwargs.get('max_decimals')
     self.use_bulk = kwargs.get('use_bulk')
     self.add_new_columns = kwargs.get('add_new_columns')
+    self.adjust_column_type = kwargs.get('adjust_column_type')
     self.table_ddl = kwargs.get('table_ddl')
     self.table_tmp = kwargs.get('table_tmp')
     self.pre_sql = kwargs.get('pre_sql')
