@@ -119,10 +119,11 @@ class Sling:
   source: Source
   target: Target
   options: Options
+  mode: str
 
   temp_file: str
 
-  def __init__(self, source: Union[Source, dict]={}, target: Union[Target, dict]={}, mode: str = 'append', options: Union[Options, dict]={}) -> None:
+  def __init__(self, source: Union[Source, dict]={}, target: Union[Target, dict]={}, mode: str = 'full-refresh', options: Union[Options, dict]={}) -> None:
     if isinstance(source, dict):
       source = Source(**source)
     self.source = source
