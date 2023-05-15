@@ -23,6 +23,7 @@ class SourceOptions:
   header: bool
   flatten: bool
   compression: str
+  format: str
   null_if: str
   datetime_format: str
   skip_blank_lines: bool
@@ -35,6 +36,7 @@ class SourceOptions:
     self.header = kwargs.get('header')
     self.flatten = kwargs.get('flatten')
     self.compression = kwargs.get('compression')
+    self.format = kwargs.get('format')
     self.null_if = kwargs.get('null_if')
     self.datetime_format = kwargs.get('datetime_format')
     self.skip_blank_lines = kwargs.get('skip_blank_lines')
@@ -65,6 +67,8 @@ class TargetOptions:
   datetime_format: str
   delimiter: str
   file_max_rows: int
+  file_max_bytes: int
+  format: str
   max_decimals: int
   use_bulk: bool
   add_new_columns: bool
@@ -81,6 +85,8 @@ class TargetOptions:
     self.datetime_format = kwargs.get('datetime_format')
     self.delimiter = kwargs.get('delimiter')
     self.file_max_rows = kwargs.get('file_max_rows')
+    self.file_max_bytes = kwargs.get('file_max_bytes')
+    self.format = kwargs.get('format')
     self.max_decimals = kwargs.get('max_decimals')
     self.use_bulk = kwargs.get('use_bulk')
     self.add_new_columns = kwargs.get('add_new_columns')
@@ -148,7 +154,10 @@ class Sling:
     # dump config
     with open(self.temp_file, 'w') as file:
       config = dict(
-        source=self.source, target=self.target, options=self.options,
+        source=self.source,
+        target=self.target,
+        mode=self.mode,
+        options=self.options,
       )
       json.dump(config, file, cls=JsonEncoder)
     
@@ -159,7 +168,7 @@ class Sling:
   def _cleanup(self):
       os.remove(self.temp_file)
 
-  def run(self, return_output=False, env:dict=None):
+  def run(self, return_output=False, env:dict=None, stdin=None):
     """
     Runs the task. Use `return_output` as `True` to return the stdout+stderr output at end. `env` accepts a dictionary which defines the environment.
     """
@@ -169,7 +178,7 @@ class Sling:
       for k,v in os.environ.items():
         env[k] = env.get(k, v)
 
-      for line in _exec_cmd(cmd, env=env):
+      for line in _exec_cmd(cmd, env=env, stdin=stdin):
         if return_output:
           lines.append(line)
         else:
