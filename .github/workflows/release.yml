@@ -5,6 +5,10 @@ on:
   repository_dispatch:
     types: [release-python]
 
+env:
+  TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD }}
+  TWINE_USERNAME: ${{ secrets.TWINE_USERNAME }}
+
 jobs:
   release-python:
     runs-on: [self-hosted, Linux]
@@ -23,7 +27,6 @@ jobs:
         
       - name: Upload to PyPi
         run: |
-          source /__/devbox/.env.sh
           mkdir sling/bin
 
           cd sling/bin
