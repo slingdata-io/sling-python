@@ -15,7 +15,7 @@ elif platform.system() == 'Darwin':
 
 class JsonEncoder(JSONEncoder):
   def default(self, o):
-    return o.__dict__  
+    return o.__dict__
 
 class SourceOptions:
   trim_space: bool
@@ -57,7 +57,7 @@ class Source:
     self.primary_key = kwargs.get('primary_key')
     self.update_key = kwargs.get('update_key')
     self.limit = kwargs.get('limit')
-    self.options = SourceOptions(options=kwargs.get('options', {}))
+    self.options = SourceOptions(**kwargs.get('options', {}))
 
 
 class TargetOptions:
@@ -104,7 +104,7 @@ class Target:
   def __init__(self, **kwargs) -> None:
     self.conn = kwargs.get('conn')
     self.object = kwargs.get('object')
-    self.options = TargetOptions(options=kwargs.get('options', {}))
+    self.options = TargetOptions(**kwargs.get('options', {}))
 
 class Options:
   stdout: bool
@@ -143,7 +143,7 @@ class Sling:
     if isinstance(options, dict):
       options = Options(**options)
     self.options = options
-  
+
   def _prep_cmd(self):
 
     # generate temp file
@@ -160,11 +160,11 @@ class Sling:
         options=self.options,
       )
       json.dump(config, file, cls=JsonEncoder)
-    
+
     cmd = f'{SLING_BIN} run -c "{self.temp_file}"'
 
     return cmd
-  
+
   def _cleanup(self):
       os.remove(self.temp_file)
 
@@ -192,9 +192,9 @@ class Sling:
 
     finally:
       self._cleanup()
-    
+
     return '\n'.join(lines)
-  
+
   def stream(self, env:dict=None, stdin=None) -> Iterable[list]:
     """
     Runs the task and streams the stdout output as iterable. `env` accepts a dictionary which defines the environment. `stdin` can be any stream-like object, which will be used as input stream.
@@ -205,13 +205,13 @@ class Sling:
     try:
       for k,v in os.environ.items():
         env[k] = env.get(k, v)
-        
+
       for stdout_line in _exec_cmd(cmd, env=env, stdin=stdin, stderr=PIPE):
         lines.append(stdout_line)
         if len(lines) > 20:
           lines.pop(0) # max size of 100 lines
         yield stdout_line
-    
+
     except Exception as E:
       lines.append(str(E))
       raise Exception('\n'.join(lines))
@@ -238,7 +238,7 @@ def cli(*args, return_output=False):
       raise E
   return '\n'.join(lines)
 
-  
+
 
 def _exec_cmd(cmd, stdin=None, stdout=PIPE, stderr=STDOUT, env:dict=None):
   with Popen(cmd, shell=True, env=env, stdin=stdin, stdout=stdout, stderr=stderr) as proc:
