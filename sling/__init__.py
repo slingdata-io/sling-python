@@ -29,6 +29,10 @@ class SourceOptions:
   skip_blank_lines: bool
   delimiter: str
   max_decimals: int
+  jmespath: str
+  sheet: str
+  range: str
+  columns: dict
 
   def __init__(self, **kwargs) -> None:
     self.trim_space = kwargs.get('trim_space')
@@ -42,6 +46,10 @@ class SourceOptions:
     self.skip_blank_lines = kwargs.get('skip_blank_lines')
     self.delimiter = kwargs.get('delimiter')
     self.max_decimals = kwargs.get('max_decimals')
+    self.jmespath = kwargs.get('jmespath')
+    self.sheet = kwargs.get('sheet')
+    self.range = kwargs.get('range')
+    self.columns = kwargs.get('columns')
 
 class Source:
   conn: str
