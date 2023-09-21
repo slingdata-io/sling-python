@@ -32,6 +32,7 @@ class SourceOptions:
   jmespath: str
   sheet: str
   range: str
+  transforms: list
   columns: dict
 
   def __init__(self, **kwargs) -> None:
@@ -49,6 +50,7 @@ class SourceOptions:
     self.jmespath = kwargs.get('jmespath')
     self.sheet = kwargs.get('sheet')
     self.range = kwargs.get('range')
+    self.transforms = kwargs.get('transforms')
     self.columns = kwargs.get('columns')
 
 class Source:
