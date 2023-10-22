@@ -43,6 +43,8 @@ jobs:
           tar xf sling_windows_amd64.tar.gz
           mv sling.exe sling-win.exe
 
+          rm -f *.tar.gz
+
           cd -
           chmod -R 755 sling/bin
           sling/bin/sling-linux --version
