@@ -30,11 +30,20 @@ jobs:
           mkdir sling/bin
 
           cd sling/bin
-          wget -q https://ocral.nyc3.digitaloceanspaces.com/slingdata.io/dist/sling-linux
-          wget -q https://ocral.nyc3.digitaloceanspaces.com/slingdata.io/dist/sling-mac
-          wget -q https://ocral.nyc3.digitaloceanspaces.com/slingdata.io/dist/sling-win.exe
-          cd -
 
+          wget -q 'https://github.com/slingdata-io/sling-cli/releases/latest/download/sling_linux_amd64.tar.gz'
+          tar xf sling_linux_amd64.tar.gz
+          mv sling sling-linux
+
+          wget -q 'https://github.com/slingdata-io/sling-cli/releases/latest/download/sling_darwin_all.tar.gz'
+          tar xf sling_darwin_all.tar.gz
+          mv sling sling-mac
+
+          wget -q 'https://github.com/slingdata-io/sling-cli/releases/latest/download/sling_windows_amd64.tar.gz'
+          tar xf sling_windows_amd64.tar.gz
+          mv sling.exe sling-win.exe
+
+          cd -
           chmod -R 755 sling/bin
           sling/bin/sling-linux --version
 
