@@ -1,5 +1,5 @@
 
-import os, sys, tempfile, time, json, platform
+import os, sys, tempfile, uuid, json, platform
 from subprocess import PIPE, Popen, STDOUT
 from typing import Iterable, List, Union
 from json import JSONEncoder
@@ -157,9 +157,9 @@ class Sling:
   def _prep_cmd(self):
 
     # generate temp file
-    ts = time.time_ns()
+    uid = uuid.uuid4()
     temp_dir = tempfile.gettempdir()
-    self.temp_file = os.path.join(temp_dir, f'sling-cfg-{ts}.json')
+    self.temp_file = os.path.join(temp_dir, f'sling-cfg-{uid}.json')
 
     # dump config
     with open(self.temp_file, 'w') as file:
