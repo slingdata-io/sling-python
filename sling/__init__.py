@@ -35,23 +35,40 @@ class SourceOptions:
   transforms: list
   columns: dict
 
-  def __init__(self, **kwargs) -> None:
-    self.trim_space = kwargs.get('trim_space')
-    self.empty_as_null = kwargs.get('empty_as_null')
-    self.header = kwargs.get('header')
-    self.flatten = kwargs.get('flatten')
-    self.compression = kwargs.get('compression')
-    self.format = kwargs.get('format')
-    self.null_if = kwargs.get('null_if')
-    self.datetime_format = kwargs.get('datetime_format')
-    self.skip_blank_lines = kwargs.get('skip_blank_lines')
-    self.delimiter = kwargs.get('delimiter')
-    self.max_decimals = kwargs.get('max_decimals')
-    self.jmespath = kwargs.get('jmespath')
-    self.sheet = kwargs.get('sheet')
-    self.range = kwargs.get('range')
-    self.transforms = kwargs.get('transforms')
-    self.columns = kwargs.get('columns')
+  def __init__(self, 
+              trim_space: bool,
+              empty_as_null: bool,
+              header: bool,
+              flatten: bool,
+              compression: str,
+              format: str,
+              null_if: str,
+              datetime_format: str,
+              skip_blank_lines: bool,
+              delimiter: str,
+              max_decimals: int,
+              jmespath: str,
+              sheet: str,
+              range: str,
+              transforms: list,
+              columns: dict,
+              ) -> None:
+    self.trim_space = trim_space
+    self.empty_as_null = empty_as_null
+    self.header = header
+    self.flatten = flatten
+    self.compression = compression
+    self.format = format
+    self.null_if = null_if
+    self.datetime_format = datetime_format
+    self.skip_blank_lines = skip_blank_lines
+    self.delimiter = delimiter
+    self.max_decimals = max_decimals
+    self.jmespath = jmespath
+    self.sheet = sheet
+    self.range = range
+    self.transforms = transforms
+    self.columns = columns
 
 class Source:
   conn: str
@@ -61,13 +78,20 @@ class Source:
   limit: int
   options: SourceOptions
 
-  def __init__(self, **kwargs) -> None:
-    self.conn = kwargs.get('conn')
-    self.stream = kwargs.get('stream')
-    self.primary_key = kwargs.get('primary_key')
-    self.update_key = kwargs.get('update_key')
-    self.limit = kwargs.get('limit')
-    self.options = SourceOptions(**kwargs.get('options', {}))
+  def __init__(self, 
+                conn: str,
+                stream: str,
+                primary_key: List[str],
+                update_key: str,
+                limit: int,
+                options: SourceOptions = {},
+               ) -> None:
+    self.conn = conn
+    self.stream = stream
+    self.primary_key = primary_key
+    self.update_key = update_key
+    self.limit = limit
+    self.options = SourceOptions(**options)
 
 
 class TargetOptions:
@@ -88,33 +112,54 @@ class TargetOptions:
   pre_sql: str
   post_sql: str
 
-  def __init__(self, **kwargs) -> None:
-    self.header = kwargs.get('header')
-    self.compression = kwargs.get('compression')
-    self.concurrency = kwargs.get('concurrency')
-    self.datetime_format = kwargs.get('datetime_format')
-    self.delimiter = kwargs.get('delimiter')
-    self.file_max_rows = kwargs.get('file_max_rows')
-    self.file_max_bytes = kwargs.get('file_max_bytes')
-    self.format = kwargs.get('format')
-    self.max_decimals = kwargs.get('max_decimals')
-    self.use_bulk = kwargs.get('use_bulk')
-    self.add_new_columns = kwargs.get('add_new_columns')
-    self.adjust_column_type = kwargs.get('adjust_column_type')
-    self.table_ddl = kwargs.get('table_ddl')
-    self.table_tmp = kwargs.get('table_tmp')
-    self.pre_sql = kwargs.get('pre_sql')
-    self.post_sql = kwargs.get('post_sql')
+  def __init__(self, 
+              header: bool,
+              compression: str,
+              concurrency: int,
+              datetime_format: str,
+              delimiter: str,
+              file_max_rows: int,
+              file_max_bytes: int,
+              format: str,
+              max_decimals: int,
+              use_bulk: bool,
+              add_new_columns: bool,
+              adjust_column_type: bool,
+              table_ddl: str,
+              table_tmp: str,
+              pre_sql: str,
+              post_sql: str,
+              ) -> None:
+    self.header = header
+    self.compression = compression
+    self.concurrency = concurrency
+    self.datetime_format = datetime_format
+    self.delimiter = delimiter
+    self.file_max_rows = file_max_rows
+    self.file_max_bytes = file_max_bytes
+    self.format = format
+    self.max_decimals = max_decimals
+    self.use_bulk = use_bulk
+    self.add_new_columns = add_new_columns
+    self.adjust_column_type = adjust_column_type
+    self.table_ddl = table_ddl
+    self.table_tmp = table_tmp
+    self.pre_sql = pre_sql
+    self.post_sql = post_sql
 
 class Target:
   conn: str
   object: str
   options: TargetOptions
 
-  def __init__(self, **kwargs) -> None:
-    self.conn = kwargs.get('conn')
-    self.object = kwargs.get('object')
-    self.options = TargetOptions(**kwargs.get('options', {}))
+  def __init__(self, 
+                conn: str,
+                object: str,
+                options: TargetOptions = {},
+               ) -> None:
+    self.conn = conn
+    self.object = object
+    self.options = TargetOptions(**options)
 
 class Options:
   stdout: bool
