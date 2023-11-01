@@ -36,22 +36,22 @@ class SourceOptions:
   columns: dict
 
   def __init__(self, 
-              trim_space: bool,
-              empty_as_null: bool,
-              header: bool,
-              flatten: bool,
-              compression: str,
-              format: str,
-              null_if: str,
-              datetime_format: str,
-              skip_blank_lines: bool,
-              delimiter: str,
-              max_decimals: int,
-              jmespath: str,
-              sheet: str,
-              range: str,
-              transforms: list,
-              columns: dict,
+              trim_space: bool = None,
+              empty_as_null: bool = None,
+              header: bool = None,
+              flatten: bool = None,
+              compression: str = None,
+              format: str = None,
+              null_if: str = None,
+              datetime_format: str = None,
+              skip_blank_lines: bool = None,
+              delimiter: str = None,
+              max_decimals: int = None,
+              jmespath: str = None,
+              sheet: str = None,
+              range: str = None,
+              transforms: list = None,
+              columns: dict = None,
               ) -> None:
     self.trim_space = trim_space
     self.empty_as_null = empty_as_null
@@ -79,11 +79,11 @@ class Source:
   options: SourceOptions
 
   def __init__(self, 
-                conn: str,
-                stream: str,
-                primary_key: List[str],
-                update_key: str,
-                limit: int,
+                conn: str = None,
+                stream: str = None,
+                primary_key: List[str] = None,
+                update_key: str = None,
+                limit: int = None,
                 options: SourceOptions = {},
                ) -> None:
     self.conn = conn
@@ -113,22 +113,22 @@ class TargetOptions:
   post_sql: str
 
   def __init__(self, 
-              header: bool,
-              compression: str,
-              concurrency: int,
-              datetime_format: str,
-              delimiter: str,
-              file_max_rows: int,
-              file_max_bytes: int,
-              format: str,
-              max_decimals: int,
-              use_bulk: bool,
-              add_new_columns: bool,
-              adjust_column_type: bool,
-              table_ddl: str,
-              table_tmp: str,
-              pre_sql: str,
-              post_sql: str,
+              header: bool = None,
+              compression: str = None,
+              concurrency: int = None,
+              datetime_format: str = None,
+              delimiter: str = None,
+              file_max_rows: int = None,
+              file_max_bytes: int = None,
+              format: str = None,
+              max_decimals: int = None,
+              use_bulk: bool = None,
+              add_new_columns: bool = None,
+              adjust_column_type: bool = None,
+              table_ddl: str = None,
+              table_tmp: str = None,
+              pre_sql: str = None,
+              post_sql: str = None,
               ) -> None:
     self.header = header
     self.compression = compression
@@ -153,8 +153,8 @@ class Target:
   options: TargetOptions
 
   def __init__(self, 
-                conn: str,
-                object: str,
+                conn: str = None,
+                object: str = None,
                 options: TargetOptions = {},
                ) -> None:
     self.conn = conn
