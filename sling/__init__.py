@@ -84,7 +84,7 @@ class Source:
                 primary_key: List[str] = None,
                 update_key: str = None,
                 limit: int = None,
-                options: SourceOptions = {},
+                options: dict = {},
                ) -> None:
     self.conn = conn
     self.stream = stream
@@ -105,13 +105,13 @@ class TargetOptions:
   format: str
   max_decimals: int
   use_bulk: bool
+  column_casing: str
   add_new_columns: bool
   adjust_column_type: bool
   table_ddl: str
   table_tmp: str
   pre_sql: str
   post_sql: str
-  column_casing: str
 
   def __init__(self, 
               header: bool = None,
@@ -124,13 +124,13 @@ class TargetOptions:
               format: str = None,
               max_decimals: int = None,
               use_bulk: bool = None,
+              column_casing: str = None,
               add_new_columns: bool = None,
               adjust_column_type: bool = None,
               table_ddl: str = None,
               table_tmp: str = None,
               pre_sql: str = None,
               post_sql: str = None,
-              column_casing: str = None,
               ) -> None:
     self.header = header
     self.compression = compression
@@ -142,13 +142,13 @@ class TargetOptions:
     self.format = format
     self.max_decimals = max_decimals
     self.use_bulk = use_bulk
+    self.column_casing = column_casing
     self.add_new_columns = add_new_columns
     self.adjust_column_type = adjust_column_type
     self.table_ddl = table_ddl
     self.table_tmp = table_tmp
     self.pre_sql = pre_sql
     self.post_sql = post_sql
-    self.column_casing = column_casing
 
 class Target:
   conn: str
@@ -158,7 +158,7 @@ class Target:
   def __init__(self, 
                 conn: str = None,
                 object: str = None,
-                options: TargetOptions = {},
+                options: dict = {},
                ) -> None:
     self.conn = conn
     self.object = object
