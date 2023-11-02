@@ -111,6 +111,7 @@ class TargetOptions:
   table_tmp: str
   pre_sql: str
   post_sql: str
+  column_casing: str
 
   def __init__(self, 
               header: bool = None,
@@ -129,6 +130,7 @@ class TargetOptions:
               table_tmp: str = None,
               pre_sql: str = None,
               post_sql: str = None,
+              column_casing: str = None,
               ) -> None:
     self.header = header
     self.compression = compression
@@ -146,6 +148,7 @@ class TargetOptions:
     self.table_tmp = table_tmp
     self.pre_sql = pre_sql
     self.post_sql = post_sql
+    self.column_casing = column_casing
 
 class Target:
   conn: str
