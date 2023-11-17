@@ -234,6 +234,7 @@ class Sling:
     lines = []
     try:
       for k,v in os.environ.items():
+        env = env or {}
         env[k] = env.get(k, v)
 
       for line in _exec_cmd(cmd, env=env, stdin=stdin):
