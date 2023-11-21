@@ -184,10 +184,11 @@ class Sling:
   target: Target
   options: Options
   mode: str
+  env: dict
 
   temp_file: str
 
-  def __init__(self, source: Union[Source, dict]={}, target: Union[Target, dict]={}, mode: str = 'full-refresh', options: Union[Options, dict]={}) -> None:
+  def __init__(self, source: Union[Source, dict]={}, target: Union[Target, dict]={}, mode: str = 'full-refresh', options: Union[Options, dict]={}, env: dict = {}) -> None:
     if isinstance(source, dict):
       source = Source(**source)
     self.source = source
@@ -197,6 +198,7 @@ class Sling:
     self.target = target
 
     self.mode = mode
+    self.env = env
 
     if isinstance(options, dict):
       options = Options(**options)
@@ -215,6 +217,7 @@ class Sling:
         source=self.source,
         target=self.target,
         mode=self.mode,
+        env=self.env,
         options=self.options,
       )
       json.dump(config, file, cls=JsonEncoder)
