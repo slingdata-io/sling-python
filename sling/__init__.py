@@ -298,20 +298,27 @@ def cli(*args, return_output=False):
   except Exception as E:
     if return_output:
       raise E
-  return '\n'.join(lines)
+    else:
+      return 11
 
+  if return_output:
+    return '\n'.join(lines)
+
+  return 0
 
 
 def _exec_cmd(cmd, stdin=None, stdout=PIPE, stderr=STDOUT, env:dict=None):
+  lines = []
+  
   with Popen(cmd, shell=True, env=env, stdin=stdin, stdout=stdout, stderr=stderr) as proc:
-    for line in proc.stdout:
-      line = str(line.strip(), 'utf-8')
-      yield line
+    if stdout and stdout != STDOUT and proc.stdout:
+      for line in proc.stdout:
+        line = str(line.strip(), 'utf-8')
+        yield line
 
     proc.wait()
 
-    lines = line
-    if stderr and stderr != STDOUT:
+    if stderr and stderr != STDOUT and proc.stderr:
       lines = '\n'.join(list(proc.stderr))
 
     if proc.returncode != 0:

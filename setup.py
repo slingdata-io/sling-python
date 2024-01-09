@@ -7,6 +7,8 @@ version = cli('--version', return_output=True).strip().replace('Version: ', '')
 
 if not version:
   raise Exception('version is blank')
+elif version == 'dev':
+  version='v0.0.dev'
 
 setup(
   name='sling',
