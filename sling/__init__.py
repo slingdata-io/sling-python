@@ -1,7 +1,7 @@
 
 import os, sys, tempfile, uuid, json, platform
 from subprocess import PIPE, Popen, STDOUT
-from typing import Iterable, List, Union
+from typing import Iterable, List, Union, Dict
 from json import JSONEncoder
 
 # set binary
@@ -171,24 +171,94 @@ class Options:
     self.stdout = kwargs.get('stdout')
 
 
+class Stream:
+  mode: str
+  object: str
+  primary_key: List[str]
+  update_key: str
+  sql: str
+  source_options: SourceOptions
+  target_options: TargetOptions
+  disabled: bool
+  def __init__(
+          self,
+          mode: str = None,
+          object: str = None,
+          primary_key: List[str] = None,
+          update_key: str = None,
+          sql: str = None,
+          source_options: SourceOptions = None,
+          target_options: TargetOptions = None,
+          disabled: bool = None,
+  ):
+    self.mode = mode
+    self.object = object
+    self.primary_key = primary_key
+    self.update_key = update_key
+    self.sql = sql
+    self.source_options = source_options
+    self.target_options = target_options
+    self.disabled = disabled
+
+  def enable(self):
+    self.disabled = False
+
+
+class Replication:
+  source: str
+  target: str
+  defaults: Stream
+  streams: Dict[str, Stream]
+  env: dict
+  def __init__(
+          self,
+          source: str,
+          target: str,
+          defaults: Stream,
+          streams: Dict[str, Stream],
+          env: dict,
+  ):
+    self.source: str = source
+    self.target: str = target
+    self.defaults = defaults
+    self.streams = streams
+    self.env = env
+
+  def add_streams(self, streams: Dict[str, Stream]):
+    self.streams.update(streams)
+
+  def enable_streams(self, streams: Dict[str, Stream]):
+    for stream_name, stream in streams.items():
+      if stream_name not in self.streams:
+        stream.enable()
+        self.streams.update({stream_name: stream})
+      else:
+        self.streams[stream_name].enable()
+
+  def default_mode(self, mode: str):
+    self.defaults.mode = mode
+
+
 class Sling:
   """
   Sling represents the main object to define a
   sling task. Call the `run` method to execute the task.
 
-  `source` represent the source object using the `Source` class.
-  `target` represent the target object using the `Target` class.
-  `options` represent the optinos object using the `Options` class.
+  `source` represents the source object using the `Source` class.
+  `target` represents the target object using the `Target` class.
+  `replication` represents the replication object using the `Replication` class
+  `options` represent the options object using the `Options` class.
   """
   source: Source
   target: Target
   options: Options
+  replication: Replication
   mode: str
   env: dict
 
   temp_file: str
 
-  def __init__(self, source: Union[Source, dict]={}, target: Union[Target, dict]={}, mode: str = 'full-refresh', options: Union[Options, dict]={}, env: dict = {}) -> None:
+  def __init__(self, source: Union[Source, dict]={}, target: Union[Target, dict]={}, replication: Union[Stream,dict]={} ,mode: str = 'full-refresh', options: Union[Options, dict]={}, env: dict = {}) -> None:
     if isinstance(source, dict):
       source = Source(**source)
     self.source = source
@@ -196,6 +266,12 @@ class Sling:
     if isinstance(target, dict):
       target = Target(**target)
     self.target = target
+
+    if replication:
+      if isinstance(replication, dict):
+        replication = Replication(**replication)
+      self.replication = replication
+      self.replication.defaults.mode = mode
 
     self.mode = mode
     self.env = env
@@ -213,16 +289,30 @@ class Sling:
 
     # dump config
     with open(self.temp_file, 'w') as file:
-      config = dict(
-        source=self.source,
-        target=self.target,
-        mode=self.mode,
-        env=self.env,
-        options=self.options,
-      )
+      if self.replication:
+        config = dict(
+          source=self.source.conn,
+          target=self.target.conn,
+          defaults=self.replication.defaults,
+          streams=self.replication.streams,
+          env=self.env,
+          options=self.options,
+        )
+      else:
+        config = dict(
+          source=self.source,
+          target=self.target,
+          mode=self.mode,
+          env=self.env,
+          options=self.options,
+        )
+
       json.dump(config, file, cls=JsonEncoder)
 
-    cmd = f'{SLING_BIN} run -c "{self.temp_file}"'
+    if self.replication:
+      cmd = f'{SLING_BIN} run -r "{self.temp_file}"'
+    else:
+      cmd = f'{SLING_BIN} run -c "{self.temp_file}"'
 
     return cmd
 
