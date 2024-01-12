@@ -212,11 +212,11 @@ class Replication:
   env: dict
   def __init__(
           self,
-          source: str,
-          target: str,
-          defaults: Stream,
-          streams: Dict[str, Stream],
-          env: dict,
+          source: str=None,
+          target: str=None,
+          defaults: Stream=None,
+          streams: Dict[str, Stream] = {},
+          env: dict={},
   ):
     self.source: str = source
     self.target: str = target
@@ -317,7 +317,7 @@ class Sling:
     return cmd
 
   def _cleanup(self):
-      os.remove(self.temp_file)
+    os.remove(self.temp_file)
 
   def run(self, return_output=False, env:dict=None, stdin=None):
     """
