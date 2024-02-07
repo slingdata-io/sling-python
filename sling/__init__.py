@@ -1,13 +1,16 @@
 
 import os, sys, tempfile, uuid, json, platform
 from subprocess import PIPE, Popen, STDOUT
-from typing import Iterable, List, Union
+from typing import Iterable, List, Union, Dict
 from json import JSONEncoder
 
 # set binary
 BIN_FOLDER = os.path.join(os.path.dirname(__file__), 'bin')
 if platform.system() == 'Linux':
-  SLING_BIN = os.path.join(BIN_FOLDER,'sling-linux')
+  if platform.machine() == 'aarch64':
+    SLING_BIN = os.path.join(BIN_FOLDER,'sling-linux-arm64')
+  else:
+    SLING_BIN = os.path.join(BIN_FOLDER,'sling-linux-amd64')
 elif platform.system() == 'Windows':
   SLING_BIN = os.path.join(BIN_FOLDER,'sling-win.exe')
 elif platform.system() == 'Darwin':
@@ -32,8 +35,9 @@ class SourceOptions:
   jmespath: str
   sheet: str
   range: str
-  transforms: list
+  limit: int
   columns: dict
+  transforms: list
 
   def __init__(self, 
               trim_space: bool = None,
@@ -50,8 +54,9 @@ class SourceOptions:
               jmespath: str = None,
               sheet: str = None,
               range: str = None,
-              transforms: list = None,
+              limit: int = None,
               columns: dict = None,
+              transforms: list = None,
               ) -> None:
     self.trim_space = trim_space
     self.empty_as_null = empty_as_null
@@ -67,8 +72,9 @@ class SourceOptions:
     self.jmespath = jmespath
     self.sheet = sheet
     self.range = range
-    self.transforms = transforms
+    self.limit = limit
     self.columns = columns
+    self.transforms = transforms
 
 class Source:
   conn: str
@@ -170,15 +176,123 @@ class Options:
   def __init__(self, **kwargs) -> None:
     self.stdout = kwargs.get('stdout')
 
+class ReplicationStream:
+  mode: str
+  object: str
+  primary_key: List[str]
+  update_key: str
+  sql: str
+  source_options: SourceOptions
+  target_options: TargetOptions
+  disabled: bool
 
-class Sling:
+  def __init__(
+          self,
+          mode: str = None,
+          object: str = None,
+          primary_key: List[str] = None,
+          update_key: str = None,
+          sql: str = None,
+          source_options: SourceOptions = None,
+          target_options: TargetOptions = None,
+          disabled: bool = None,
+  ):
+    self.mode = mode
+    self.object = object
+    self.primary_key = primary_key
+    self.update_key = update_key
+    self.sql = sql
+    self.source_options = source_options
+    self.target_options = target_options
+    self.disabled = disabled
+
+  def enable(self):
+    self.disabled = False
+
+  def disable(self):
+    self.disabled = True
+
+
+class Replication:
   """
-  Sling represents the main object to define a
+  Task represents a sling replication. Call the `run` method to execute it.
+
+  `source` represents the source object using the `Source` class.
+  `target` represents the target object using the `Target` class.
+  `replication` represents the replication object using the `Replication` class
+  `options` represent the options object using the `Options` class.
+  """
+
+  source: str
+  target: str
+  defaults: ReplicationStream
+  streams: Dict[str, ReplicationStream]
+  env: dict
+
+  def __init__(
+          self,
+          source: str=None,
+          target: str=None,
+          defaults: ReplicationStream=None,
+          streams: Dict[str, ReplicationStream] = {},
+          env: dict={},
+  ):
+    self.source: str = source
+    self.target: str = target
+    self.defaults = defaults
+    self.streams = streams
+    self.env = env
+
+  def add_streams(self, streams: Dict[str, ReplicationStream]):
+    self.streams.update(streams)
+
+  def enable_streams(self, stream_names: List[str]):
+    for stream_name in stream_names:
+      if stream_name in self.streams:
+        self.streams[stream_name].enable()
+
+  def disable_streams(self, stream_names: List[str]):
+    for stream_name in stream_names:
+      if stream_name in self.streams:
+        self.streams[stream_name].disable()
+
+  def set_default_mode(self, mode: str):
+    self.defaults.mode = mode
+
+  def _prep_cmd(self):
+
+    # generate temp file
+    uid = uuid.uuid4()
+    temp_dir = tempfile.gettempdir()
+    self.temp_file = os.path.join(temp_dir, f'sling-replication-{uid}.json')
+
+    # dump config
+    with open(self.temp_file, 'w') as file:
+      config = dict(
+        source=self.source.conn,
+        target=self.target.conn,
+        defaults=self.replication.defaults,
+        streams=self.replication.streams,
+        env=self.env,
+      )
+
+      json.dump(config, file, cls=JsonEncoder)
+    
+    return f'{SLING_BIN} run -r "{self.temp_file}"'
+  
+  def run(self, return_output=False, env:dict=None, stdin=None):
+    cmd = self._prep_cmd()
+    return _run(cmd, self.temp_file, return_output=return_output, env=env, stdin=stdin)
+
+class Task:
+  """
+  Task represents the main object to define a
   sling task. Call the `run` method to execute the task.
 
-  `source` represent the source object using the `Source` class.
-  `target` represent the target object using the `Target` class.
-  `options` represent the optinos object using the `Options` class.
+  `source` represents the source object using the `Source` class.
+  `target` represents the target object using the `Target` class.
+  `replication` represents the replication object using the `Replication` class
+  `options` represent the options object using the `Options` class.
   """
   source: Source
   target: Target
@@ -188,7 +302,14 @@ class Sling:
 
   temp_file: str
 
-  def __init__(self, source: Union[Source, dict]={}, target: Union[Target, dict]={}, mode: str = 'full-refresh', options: Union[Options, dict]={}, env: dict = {}) -> None:
+  def __init__(
+      self,
+      source: Union[Source, dict]={},
+      target: Union[Target, dict]={},
+      mode: str = 'full-refresh', 
+      options: Union[Options, dict]={},
+      env: dict = {},
+    ) -> None:
     if isinstance(source, dict):
       source = Source(**source)
     self.source = source
@@ -209,7 +330,7 @@ class Sling:
     # generate temp file
     uid = uuid.uuid4()
     temp_dir = tempfile.gettempdir()
-    self.temp_file = os.path.join(temp_dir, f'sling-cfg-{uid}.json')
+    self.temp_file = os.path.join(temp_dir, f'sling-task-{uid}.json')
 
     # dump config
     with open(self.temp_file, 'w') as file:
@@ -220,48 +341,20 @@ class Sling:
         env=self.env,
         options=self.options,
       )
+
       json.dump(config, file, cls=JsonEncoder)
 
-    cmd = f'{SLING_BIN} run -c "{self.temp_file}"'
-
-    return cmd
-
-  def _cleanup(self):
-      os.remove(self.temp_file)
-
+    return f'{SLING_BIN} run -c "{self.temp_file}"'
+  
   def run(self, return_output=False, env:dict=None, stdin=None):
-    """
-    Runs the task. Use `return_output` as `True` to return the stdout+stderr output at end. `env` accepts a dictionary which defines the environment.
-    """
     cmd = self._prep_cmd()
-    lines = []
-    try:
-      for k,v in os.environ.items():
-        env = env or {}
-        env[k] = env.get(k, v)
-
-      for line in _exec_cmd(cmd, env=env, stdin=stdin):
-        if return_output:
-          lines.append(line)
-        else:
-          print(line, flush=True)
-
-    except Exception as E:
-      if return_output:
-        lines.append(str(E))
-        raise Exception('\n'.join(lines))
-      raise E
-
-    finally:
-      self._cleanup()
-
-    return '\n'.join(lines)
+    return _run(cmd, self.temp_file, return_output=return_output, env=env, stdin=stdin)
 
   def stream(self, env:dict=None, stdin=None) -> Iterable[list]:
     """
     Runs the task and streams the stdout output as iterable. `env` accepts a dictionary which defines the environment. `stdin` can be any stream-like object, which will be used as input stream.
     """
-    cmd = self._prep_cmd()
+    cmd = self._prep_file()
 
     lines = []
     try:
@@ -279,7 +372,37 @@ class Sling:
       raise Exception('\n'.join(lines))
 
     finally:
-      self._cleanup()
+      os.remove(self.temp_file)
+
+# conform to legacy module
+Sling = Task
+
+def _run(cmd: str, temp_file: str, return_output=False, env:dict=None, stdin=None):
+  """
+  Runs the task. Use `return_output` as `True` to return the stdout+stderr output at end. `env` accepts a dictionary which defines the environment.
+  """
+  lines = []
+  try:
+    for k,v in os.environ.items():
+      env = env or {}
+      env[k] = env.get(k, v)
+
+    for line in _exec_cmd(cmd, env=env, stdin=stdin):
+      if return_output:
+        lines.append(line)
+      else:
+        print(line, flush=True)
+
+  except Exception as E:
+    if return_output:
+      lines.append(str(E))
+      raise Exception('\n'.join(lines))
+    raise E
+
+  finally:
+    os.remove(temp_file)
+
+  return '\n'.join(lines)
 
 def cli(*args, return_output=False):
   "calls the sling binary with the provided args"
