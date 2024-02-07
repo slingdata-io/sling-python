@@ -52,7 +52,7 @@ jobs:
 
           cd -
           chmod -R 755 sling/bin
-          sling/bin/sling-linux --version
+          sling/bin/sling-linux-amd64 --version
 
           pip install -e .
           pip install twine
