@@ -1,7 +1,7 @@
-import os, sys, platform
+import os, platform
 from setuptools import setup
 from setuptools import find_packages
-from sling import cli, SLING_BIN
+from sling import cli
 
 version = cli('--version', return_output=True).strip().replace('Version: ', '')
 
@@ -9,8 +9,6 @@ if not version:
   raise Exception('version is blank')
 elif version == 'dev':
   version='v0.0.dev'
-
-binary_name = os.path.split(SLING_BIN)[-1]
 
 install_requires = []
 if platform.system() == 'Linux':
@@ -40,7 +38,6 @@ setup(
 
   # https://setuptools.pypa.io/en/latest/userguide/datafiles.html#subdirectory-for-data-files
   packages=find_packages(exclude=['tests']),
-  # package_data={"sling": [os.path.join('bin', binary_name)]},
   long_description_content_type='text/markdown',
   long_description=open(os.path.join(os.path.dirname(__file__), '..', 'README.md')).read(),
   include_package_data=True, # uses MANIFEST.in
