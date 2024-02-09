@@ -4,17 +4,18 @@ from subprocess import PIPE, Popen, STDOUT
 from typing import Iterable, List, Union, Dict
 from json import JSONEncoder
 
-# set binary
-BIN_FOLDER = os.path.join(os.path.dirname(__file__), 'bin')
 if platform.system() == 'Linux':
   if platform.machine() == 'aarch64':
-    SLING_BIN = os.path.join(BIN_FOLDER,'sling-linux-arm64')
+    from sling_linux_arm64 import SLING_BIN
   else:
-    SLING_BIN = os.path.join(BIN_FOLDER,'sling-linux-amd64')
+    from sling_linux_amd64 import SLING_BIN
 elif platform.system() == 'Windows':
-  SLING_BIN = os.path.join(BIN_FOLDER,'sling-win.exe')
+  if platform.machine() == 'aarch64':
+    from sling_windows_arm64 import SLING_BIN
+  else:
+    from sling_windows_amd64 import SLING_BIN
 elif platform.system() == 'Darwin':
-  SLING_BIN = os.path.join(BIN_FOLDER,'sling-mac')
+  from sling_mac_universal import SLING_BIN
 
 class JsonEncoder(JSONEncoder):
   def default(self, o):
@@ -170,11 +171,12 @@ class Target:
     self.object = object
     self.options = TargetOptions(**options)
 
-class Options:
+class TaskOptions:
   stdout: bool
 
   def __init__(self, **kwargs) -> None:
     self.stdout = kwargs.get('stdout')
+    self.debug = kwargs.get('debug')
 
 class ReplicationStream:
   mode: str
@@ -228,6 +230,7 @@ class Replication:
   defaults: ReplicationStream
   streams: Dict[str, ReplicationStream]
   env: dict
+  debug: bool
 
   def __init__(
           self,
@@ -236,12 +239,14 @@ class Replication:
           defaults: ReplicationStream=None,
           streams: Dict[str, ReplicationStream] = {},
           env: dict={},
+          debug=False
   ):
     self.source: str = source
     self.target: str = target
     self.defaults = defaults
     self.streams = streams
     self.env = env
+    self.debug = debug
 
   def add_streams(self, streams: Dict[str, ReplicationStream]):
     self.streams.update(streams)
@@ -278,7 +283,9 @@ class Replication:
 
       json.dump(config, file, cls=JsonEncoder)
     
-    return f'{SLING_BIN} run -r "{self.temp_file}"'
+    debug = '-d' if self.debug else ''
+
+    return f'{SLING_BIN} run {debug} -r "{self.temp_file}"'
   
   def run(self, return_output=False, env:dict=None, stdin=None):
     cmd = self._prep_cmd()
@@ -296,7 +303,7 @@ class Task:
   """
   source: Source
   target: Target
-  options: Options
+  options: TaskOptions
   mode: str
   env: dict
 
@@ -307,7 +314,7 @@ class Task:
       source: Union[Source, dict]={},
       target: Union[Target, dict]={},
       mode: str = 'full-refresh', 
-      options: Union[Options, dict]={},
+      options: Union[TaskOptions, dict]={},
       env: dict = {},
     ) -> None:
     if isinstance(source, dict):
@@ -322,7 +329,7 @@ class Task:
     self.env = env
 
     if isinstance(options, dict):
-      options = Options(**options)
+      options = TaskOptions(**options)
     self.options = options
 
   def _prep_cmd(self):

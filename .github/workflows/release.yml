@@ -21,39 +21,98 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: '3.9'
-
-      # see https://github.com/peter-evans/repository-dispatch
-      # - name: Dispatch Payload
-      #   run: echo ${{ github.event.client_payload }}
         
-      - name: Upload to PyPi
+      - name: Pip Install
         run: |
-          mkdir sling/bin
+          pip install twine
+        
+      - name: Release sling-linux-amd64 to PyPi
+        run: |
+          mkdir -p sling_base/sling-linux-amd64/sling_linux_amd64/bin
 
-          cd sling/bin
+          cd sling_base/sling-linux-amd64/sling_linux_amd64/bin
 
           wget -q 'https://github.com/slingdata-io/sling-cli/releases/latest/download/sling_linux_amd64.tar.gz'
           tar xf sling_linux_amd64.tar.gz
           mv sling sling-linux-amd64
 
-          # wget -q 'https://github.com/slingdata-io/sling-cli/releases/latest/download/sling_linux_arm64.tar.gz'
-          # tar xf sling_linux_arm64.tar.gz
-          # mv sling sling-linux-arm64
+          rm -f *.tar.gz
+
+          cd -
+          chmod -R 755 sling_base/sling-linux-amd64/sling_linux_amd64/bin
+
+          export SLING_VERSION=$( sling_base/sling-linux-amd64/sling_linux_amd64/bin/sling-linux-amd64 --version | sed 's/Version: //')
+
+          cd sling_base/sling-linux-amd64/sling_linux_amd64
+          pip install -e .
+          python setup.py sdist && twine upload --verbose --skip-existing dist/*
+        
+      - name: Release sling-linux-arm64 to PyPi
+        run: |
+          mkdir -p sling_base/sling-linux-arm64/sling_linux_arm64/bin
+
+          cd sling_base/sling-linux-arm64/sling_linux_arm64/bin
+
+          wget -q 'https://github.com/slingdata-io/sling-cli/releases/latest/download/sling_linux_arm64.tar.gz'
+          tar xf sling_linux_arm64.tar.gz
+          mv sling sling-linux-arm64
+
+          rm -f *.tar.gz
+
+          cd -
+          chmod -R 755 sling_base/sling-linux-arm64/sling_linux_arm64/bin
+
+          export SLING_VERSION=$( sling_base/sling-linux-amd64/sling_linux_amd64/bin/sling-linux-amd64 --version | sed 's/Version: //')
+
+          cd sling_base/sling-linux-arm64/sling_linux_arm64
+          pip install -e .
+          python setup.py sdist && twine upload --verbose --skip-existing dist/*
+        
+      - name: Release sling-mac-universal to PyPi
+        run: |
+          mkdir -p sling_base/sling-mac-universal/sling_mac_universal/bin
+
+          cd sling_base/sling-mac-universal/sling_mac_universal/bin
 
           wget -q 'https://github.com/slingdata-io/sling-cli/releases/latest/download/sling_darwin_all.tar.gz'
           tar xf sling_darwin_all.tar.gz
           mv sling sling-mac
 
+          rm -f *.tar.gz
+
+          cd -
+          chmod -R 755 sling_base/sling-mac-universal/sling_mac_universal/bin
+
+          export SLING_VERSION=$( sling_base/sling-linux-amd64/sling_linux_amd64/bin/sling-linux-amd64 --version | sed 's/Version: //')
+
+          cd sling_base/sling-mac-universal/sling_mac_universal
+          pip install -e .
+          python setup.py sdist && twine upload --verbose --skip-existing dist/*
+        
+      - name: Release sling-windows-amd64 to PyPi
+        run: |
+          mkdir -p sling_base/sling-windows-amd64/sling_windows_amd64/bin
+
+          cd sling_base/sling-windows-amd64/sling_windows_amd64/bin
+
           wget -q 'https://github.com/slingdata-io/sling-cli/releases/latest/download/sling_windows_amd64.tar.gz'
           tar xf sling_windows_amd64.tar.gz
-          mv sling.exe sling-win.exe
+          mv sling.exe sling-win-amd64.exe
 
           rm -f *.tar.gz
 
           cd -
-          chmod -R 755 sling/bin
-          sling/bin/sling-linux-amd64 --version
+          chmod -R 755 sling_base/sling-windows-amd64/sling_windows_amd64/bin
 
+          export SLING_VERSION=$( sling_base/sling-linux-amd64/sling_linux_amd64/bin/sling-linux-amd64 --version | sed 's/Version: //')
+
+          cd sling_base/sling-windows-amd64/sling_windows_amd64
           pip install -e .
-          pip install twine
+          python setup.py sdist && twine upload --verbose --skip-existing dist/*
+        
+      - name: Release sling to PyPi
+        run: |
+          
+          cd sling
+          pip install -e .
           python setup.py sdist && twine upload --verbose --skip-existing dist/*
