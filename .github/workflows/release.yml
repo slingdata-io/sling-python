@@ -161,7 +161,7 @@ jobs:
           echo $SLING_VERSION > sling/VERSION
           if [[ $VERSION_OVERRIDE ]]
           then
-                echo $VERSION_OVERRIDE > $BIN_FOLDER/VERSION
+                echo $VERSION_OVERRIDE > sling/VERSION
           fi
           
           cp README.md sling/
