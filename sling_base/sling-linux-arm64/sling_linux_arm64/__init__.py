@@ -17,4 +17,4 @@ SLING_VERSION = 'dev'
 version_path = pathlib.Path(os.path.join(BIN_FOLDER,'VERSION'))
 if version_path.exists():
   with version_path.open() as file:
-    SLING_VERSION = file.read()
+    SLING_VERSION = file.read().strip()
