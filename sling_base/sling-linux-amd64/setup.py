@@ -1,16 +1,11 @@
 import os
 from setuptools import setup
 from setuptools import find_packages
-
-version = os.getenv('SLING_VERSION')
-if not version:
-  raise Exception('version is blank')
-elif version == 'dev':
-  version='v0.0.dev'
+from sling_linux_amd64 import SLING_VERSION
 
 setup(
   name='sling-linux-amd64',
-  version=version,
+  version=SLING_VERSION,
   description='Sling Binary for Linux (AMD64)',
   author='Fritz Larco',
   author_email='fritz@slingdata.io',

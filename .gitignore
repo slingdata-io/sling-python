@@ -130,3 +130,5 @@ dmypy.json
 bin/
 Pipfile
 .DS_Store
+
+VERSION

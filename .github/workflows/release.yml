@@ -28,9 +28,12 @@ jobs:
         
       - name: Release sling-linux-amd64 to PyPi
         run: |
-          mkdir -p sling_base/sling-linux-amd64/sling_linux_amd64/bin
+          export BASE_FOLDER=sling_base/sling-linux-amd64
+          export BIN_FOLDER=$BASE_FOLDER/sling_linux_amd64/bin
 
-          cd sling_base/sling-linux-amd64/sling_linux_amd64/bin
+          mkdir -p $BIN_FOLDER
+
+          cd $BIN_FOLDER
 
           wget -q 'https://github.com/slingdata-io/sling-cli/releases/latest/download/sling_linux_amd64.tar.gz'
           tar xf sling_linux_amd64.tar.gz
@@ -39,9 +42,10 @@ jobs:
           rm -f *.tar.gz
 
           cd -
-          chmod -R 755 sling_base/sling-linux-amd64/sling_linux_amd64/bin
+          chmod -R 755 $BIN_FOLDER
 
-          export SLING_VERSION=$( sling_base/sling-linux-amd64/sling_linux_amd64/bin/sling-linux-amd64 --version | sed 's/Version: //')
+          export SLING_VERSION=$( $BIN_FOLDER/sling-linux-amd64 --version | sed 's/Version: //')
+          echo $SLING_VERSION > $BIN_FOLDER/VERSION
 
           cd sling_base/sling-linux-amd64
           pip install -e .
@@ -49,9 +53,12 @@ jobs:
         
       - name: Release sling-linux-arm64 to PyPi
         run: |
-          mkdir -p sling_base/sling-linux-arm64/sling_linux_arm64/bin
+          export BASE_FOLDER=sling_base/sling-linux-arm64
+          export BIN_FOLDER=$BASE_FOLDER/sling_linux_arm64/bin
 
-          cd sling_base/sling-linux-arm64/sling_linux_arm64/bin
+          mkdir -p $BIN_FOLDER
+
+          cd $BIN_FOLDER
 
           wget -q 'https://github.com/slingdata-io/sling-cli/releases/latest/download/sling_linux_arm64.tar.gz'
           tar xf sling_linux_arm64.tar.gz
@@ -60,19 +67,23 @@ jobs:
           rm -f *.tar.gz
 
           cd -
-          chmod -R 755 sling_base/sling-linux-arm64/sling_linux_arm64/bin
+          chmod -R 755 $BIN_FOLDER
 
           export SLING_VERSION=$( sling_base/sling-linux-amd64/sling_linux_amd64/bin/sling-linux-amd64 --version | sed 's/Version: //')
+          echo $SLING_VERSION > $BIN_FOLDER/VERSION
 
-          cd sling_base/sling-linux-arm64
+          cd $BASE_FOLDER
           pip install -e .
           python setup.py sdist && twine upload --verbose --skip-existing dist/*
         
       - name: Release sling-mac-universal to PyPi
         run: |
-          mkdir -p sling_base/sling-mac-universal/sling_mac_universal/bin
+          export BASE_FOLDER=sling_base/sling-mac-universal
+          export BIN_FOLDER=$BASE_FOLDER/sling_mac_universal/bin
 
-          cd sling_base/sling-mac-universal/sling_mac_universal/bin
+          mkdir -p $BIN_FOLDER
+
+          cd $BIN_FOLDER
 
           wget -q 'https://github.com/slingdata-io/sling-cli/releases/latest/download/sling_darwin_all.tar.gz'
           tar xf sling_darwin_all.tar.gz
@@ -81,19 +92,23 @@ jobs:
           rm -f *.tar.gz
 
           cd -
-          chmod -R 755 sling_base/sling-mac-universal/sling_mac_universal/bin
+          chmod -R 755 $BIN_FOLDER
 
           export SLING_VERSION=$( sling_base/sling-linux-amd64/sling_linux_amd64/bin/sling-linux-amd64 --version | sed 's/Version: //')
+          echo $SLING_VERSION > $BIN_FOLDER/VERSION
 
-          cd sling_base/sling-mac-universal
+          cd $BASE_FOLDER
           pip install -e .
           python setup.py sdist && twine upload --verbose --skip-existing dist/*
         
       - name: Release sling-windows-amd64 to PyPi
         run: |
-          mkdir -p sling_base/sling-windows-amd64/sling_windows_amd64/bin
+          export BASE_FOLDER=sling_base/sling-windows-amd64
+          export BIN_FOLDER=$BASE_FOLDER/sling_windows_amd64/bin
 
-          cd sling_base/sling-windows-amd64/sling_windows_amd64/bin
+          mkdir -p $BIN_FOLDER
+
+          cd $BIN_FOLDER
 
           wget -q 'https://github.com/slingdata-io/sling-cli/releases/latest/download/sling_windows_amd64.tar.gz'
           tar xf sling_windows_amd64.tar.gz
@@ -102,17 +117,19 @@ jobs:
           rm -f *.tar.gz
 
           cd -
-          chmod -R 755 sling_base/sling-windows-amd64/sling_windows_amd64/bin
+          chmod -R 755 $BIN_FOLDER
 
           export SLING_VERSION=$( sling_base/sling-linux-amd64/sling_linux_amd64/bin/sling-linux-amd64 --version | sed 's/Version: //')
+          echo $SLING_VERSION > $BIN_FOLDER/VERSION
 
-          cd sling_base/sling-windows-amd64
+          cd $BASE_FOLDER
           pip install -e .
           python setup.py sdist && twine upload --verbose --skip-existing dist/*
         
       - name: Release sling to PyPi
         run: |
           export SLING_VERSION=$( sling_base/sling-linux-amd64/sling_linux_amd64/bin/sling-linux-amd64 --version | sed 's/Version: //')
+          echo $SLING_VERSION > sling/VERSION
           
           cd sling
           pip install -e .

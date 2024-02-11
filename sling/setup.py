@@ -1,10 +1,6 @@
-import os, platform
+import os, platform, pathlib
 from setuptools import setup
 from setuptools import find_packages
-
-version = os.getenv('SLING_VERSION')
-if not version:
-  raise Exception('version is blank')
 
 install_requires = []
 if platform.system() == 'Linux':
@@ -22,9 +18,16 @@ elif platform.system() == 'Darwin':
 else:
   raise Exception(f'platform "{platform.system()}" ({platform.system()}) not supported.')
 
+SLING_VERSION = 'dev'
+
+version_path = pathlib.Path(os.path.join(os.path.dirname(__file__), 'VERSION'))
+if version_path.exists():
+  with version_path.open() as file:
+    SLING_VERSION = file.read()
+
 setup(
   name='sling',
-  version=version,
+  version=SLING_VERSION,
   description='Slings data from a source to a target',
   author='Fritz Larco',
   author_email='fritz@slingdata.io',
