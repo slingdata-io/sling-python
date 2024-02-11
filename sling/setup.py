@@ -1,14 +1,10 @@
 import os, platform
 from setuptools import setup
 from setuptools import find_packages
-from sling import cli
 
-version = cli('--version', return_output=True).strip().replace('Version: ', '')
-
+version = os.getenv('SLING_VERSION')
 if not version:
   raise Exception('version is blank')
-elif version == 'dev':
-  version='v0.0.dev'
 
 install_requires = []
 if platform.system() == 'Linux':

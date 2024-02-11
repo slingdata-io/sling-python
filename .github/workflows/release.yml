@@ -112,6 +112,7 @@ jobs:
         
       - name: Release sling to PyPi
         run: |
+          export SLING_VERSION=$( sling_base/sling-linux-amd64/sling_linux_amd64/bin/sling-linux-amd64 --version | sed 's/Version: //')
           
           cd sling
           pip install -e .
