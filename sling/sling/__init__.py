@@ -420,7 +420,8 @@ def cli(*args, return_output=False):
   try:
     stdout = PIPE if return_output else sys.stdout
     stderr = STDOUT if return_output else sys.stderr
-    for line in _exec_cmd(cmd, stdin=sys.stdin, stdout=stdout, stderr=stderr):
+    env = { k: v for k,v in os.environ.items() }
+    for line in _exec_cmd(cmd, stdin=sys.stdin, stdout=stdout, stderr=stderr, env=env):
       if return_output:
         lines.append(line)
       else:
