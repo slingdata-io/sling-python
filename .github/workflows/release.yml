@@ -2,12 +2,17 @@ name: Release to PyPi
 
 on: 
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'version override'     
+        required: false
   repository_dispatch:
     types: [release-python]
 
 env:
   TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD }}
   TWINE_USERNAME: ${{ secrets.TWINE_USERNAME }}
+  VERSION_OVERRIDE: ${{ github.event.inputs.version }}
 
 jobs:
   release-python:
@@ -46,6 +51,12 @@ jobs:
 
           export SLING_VERSION=$( $BIN_FOLDER/sling-linux-amd64 --version | sed 's/Version: //')
           echo $SLING_VERSION > $BIN_FOLDER/VERSION
+          if [[ $VERSION_OVERRIDE ]]
+          then
+                echo $VERSION_OVERRIDE > $BIN_FOLDER/VERSION
+          fi
+
+          cp README.md $BASE_FOLDER/
 
           cd sling_base/sling-linux-amd64
           pip install -e .
@@ -71,6 +82,12 @@ jobs:
 
           export SLING_VERSION=$( sling_base/sling-linux-amd64/sling_linux_amd64/bin/sling-linux-amd64 --version | sed 's/Version: //')
           echo $SLING_VERSION > $BIN_FOLDER/VERSION
+          if [[ $VERSION_OVERRIDE ]]
+          then
+                echo $VERSION_OVERRIDE > $BIN_FOLDER/VERSION
+          fi
+          
+          cp README.md $BASE_FOLDER/
 
           cd $BASE_FOLDER
           pip install -e .
@@ -96,6 +113,12 @@ jobs:
 
           export SLING_VERSION=$( sling_base/sling-linux-amd64/sling_linux_amd64/bin/sling-linux-amd64 --version | sed 's/Version: //')
           echo $SLING_VERSION > $BIN_FOLDER/VERSION
+          if [[ $VERSION_OVERRIDE ]]
+          then
+                echo $VERSION_OVERRIDE > $BIN_FOLDER/VERSION
+          fi
+          
+          cp README.md $BASE_FOLDER/
 
           cd $BASE_FOLDER
           pip install -e .
@@ -121,6 +144,12 @@ jobs:
 
           export SLING_VERSION=$( sling_base/sling-linux-amd64/sling_linux_amd64/bin/sling-linux-amd64 --version | sed 's/Version: //')
           echo $SLING_VERSION > $BIN_FOLDER/VERSION
+          if [[ $VERSION_OVERRIDE ]]
+          then
+                echo $VERSION_OVERRIDE > $BIN_FOLDER/VERSION
+          fi
+          
+          cp README.md $BASE_FOLDER/
 
           cd $BASE_FOLDER
           pip install -e .
@@ -130,6 +159,12 @@ jobs:
         run: |
           export SLING_VERSION=$( sling_base/sling-linux-amd64/sling_linux_amd64/bin/sling-linux-amd64 --version | sed 's/Version: //')
           echo $SLING_VERSION > sling/VERSION
+          if [[ $VERSION_OVERRIDE ]]
+          then
+                echo $VERSION_OVERRIDE > $BIN_FOLDER/VERSION
+          fi
+          
+          cp README.md sling/
           
           cd sling
           pip install -e .

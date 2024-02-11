@@ -1,1 +1,2 @@
 recursive-include sling_mac_universal/bin *
+include README.md

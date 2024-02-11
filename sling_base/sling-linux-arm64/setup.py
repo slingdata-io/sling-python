@@ -16,7 +16,7 @@ setup(
   # https://setuptools.pypa.io/en/latest/userguide/datafiles.html#subdirectory-for-data-files
   packages=find_packages(exclude=['tests']),
   long_description_content_type='text/markdown',
-  long_description=open(os.path.join(os.path.dirname(__file__), '..', '..', 'README.md')).read(),
+  long_description=open(os.path.join(os.path.dirname(__file__), 'README.md')).read(),
   include_package_data=True, # uses MANIFEST.in
   install_requires=[],
   extras_require={},

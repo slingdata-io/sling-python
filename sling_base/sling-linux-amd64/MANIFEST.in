@@ -1,1 +1,2 @@
 recursive-include sling_linux_amd64/bin *
+include README.md
