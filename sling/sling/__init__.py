@@ -13,6 +13,14 @@ from json import JSONEncoder
 # to avoid exceeding the PyPi quotas. This also allows a faster 
 # install via pip and saves bandwidth.
 
+# For development
+SLING_BASE = os.path.join(os.path.dirname(__file__), '..', '..', 'sling_base')
+insert = lambda f: sys.path.insert(1, os.path.join(SLING_BASE, f))
+insert('sling-windows-amd64')
+insert('sling-linux-amd64')
+insert('sling-linux-arm64')
+insert('sling-mac-universal')
+
 SLING_BIN = None
 
 if platform.system() == 'Linux':
@@ -26,7 +34,7 @@ elif platform.system() == 'Windows':
   else:
     exec('from sling_windows_amd64 import SLING_BIN')
 elif platform.system() == 'Darwin':
-   exec('from sling_mac_universal import SLING_BIN')
+  exec('from sling_mac_universal import SLING_BIN')
 
 #################################################################
 
@@ -69,7 +77,7 @@ class SourceOptions:
               sheet: str = None,
               range: str = None,
               limit: int = None,
-              columns: dict = None,
+              columns: dict = {},
               transforms: list = None,
               ) -> None:
     self.trim_space = trim_space
@@ -178,11 +186,15 @@ class Target:
   def __init__(self, 
                 conn: str = None,
                 object: str = None,
-                options: dict = {},
+                options: Union[TargetOptions, dict]={},
                ) -> None:
     self.conn = conn
     self.object = object
-    self.options = TargetOptions(**options)
+
+    if isinstance(options, dict):
+      options = TargetOptions(**options)
+
+    self.options = options
 
 class TaskOptions:
   stdout: bool
@@ -208,8 +220,8 @@ class ReplicationStream:
           primary_key: List[str] = None,
           update_key: str = None,
           sql: str = None,
-          source_options: SourceOptions = None,
-          target_options: TargetOptions = None,
+          source_options: Union[SourceOptions, dict]={},
+          target_options: Union[TargetOptions, dict]={},
           disabled: bool = None,
   ):
     self.mode = mode
@@ -217,8 +229,15 @@ class ReplicationStream:
     self.primary_key = primary_key
     self.update_key = update_key
     self.sql = sql
+
+    if isinstance(source_options, dict):
+      source_options = SourceOptions(**source_options)
     self.source_options = source_options
+
+    if isinstance(target_options, dict):
+      target_options = TargetOptions(**target_options)
     self.target_options = target_options
+
     self.disabled = disabled
 
   def enable(self):
@@ -249,14 +268,18 @@ class Replication:
           self,
           source: str=None,
           target: str=None,
-          defaults: ReplicationStream=None,
+          defaults: Union[ReplicationStream, dict]={},
           streams: Dict[str, ReplicationStream] = {},
           env: dict={},
           debug=False
   ):
     self.source: str = source
     self.target: str = target
+
+    if isinstance(defaults, dict):
+      defaults = ReplicationStream(**defaults)
     self.defaults = defaults
+
     self.streams = streams
     self.env = env
     self.debug = debug
@@ -412,15 +435,19 @@ def _run(cmd: str, temp_file: str, return_output=False, env:dict=None, stdin=Non
         lines.append(line)
       else:
         print(line, flush=True)
+    
+    os.remove(temp_file)
 
   except Exception as E:
+    print(f'config file for debugging: {temp_file}')
+
     if return_output:
       lines.append(str(E))
       raise Exception('\n'.join(lines))
     raise E
 
   finally:
-    os.remove(temp_file)
+    pass
 
   return '\n'.join(lines)
 
