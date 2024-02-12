@@ -18,12 +18,18 @@ elif platform.system() == 'Darwin':
 else:
   raise Exception(f'platform "{platform.system()}" ({platform.system()}) not supported.')
 
-SLING_VERSION = 'dev'
+SLING_VERSION = '0.0.0dev'
 
 version_path = pathlib.Path(os.path.join(os.path.dirname(__file__), 'VERSION'))
 if version_path.exists():
   with version_path.open() as file:
     SLING_VERSION = file.read().strip()
+
+README = 'dev'
+readme_path = pathlib.Path(os.path.join(os.path.dirname(__file__), 'README.md'))
+if readme_path.exists():
+  with readme_path.open() as file:
+    README = file.read()
 
 setup(
   name='sling',
@@ -38,7 +44,7 @@ setup(
   # https://setuptools.pypa.io/en/latest/userguide/datafiles.html#subdirectory-for-data-files
   packages=find_packages(exclude=['tests']),
   long_description_content_type='text/markdown',
-  long_description=open(os.path.join(os.path.dirname(__file__), 'README.md')).read(),
+  long_description=README,
   include_package_data=True, # uses MANIFEST.in
   install_requires=install_requires,
   extras_require={},

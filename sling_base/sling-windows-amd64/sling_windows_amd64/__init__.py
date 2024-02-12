@@ -12,7 +12,7 @@ if platform.system() == 'Windows':
 else:
   SLING_BIN = ''
 
-SLING_VERSION = 'dev'
+SLING_VERSION = '0.0.0dev'
 
 version_path = pathlib.Path(os.path.join(BIN_FOLDER,'VERSION'))
 if version_path.exists():
