@@ -4,18 +4,29 @@ from subprocess import PIPE, Popen, STDOUT
 from typing import Iterable, List, Union, Dict
 from json import JSONEncoder
 
+#################################################################
+# Logic to import binaries for various operating systems.
+# Since the binary is built in Go, it needs to be added to the pypi
+# package via the MANIFEST.in. And since there are multiple binaries (one per OS/ARCH)
+# it is necessary to split them out to avoid exceeding the PyPi quotas.
+# This also allows a faster install via pip and save bandwidth.
+
+SLING_BIN = None
+
 if platform.system() == 'Linux':
   if platform.machine() == 'aarch64':
-    from sling_linux_arm64 import SLING_BIN
+    exec('from sling_linux_arm64 import SLING_BIN')
   else:
-    from sling_linux_amd64 import SLING_BIN
+    exec('from sling_linux_amd64 import SLING_BIN')
 elif platform.system() == 'Windows':
   if platform.machine() == 'aarch64':
-    from sling_windows_arm64 import SLING_BIN
+    exec('from sling_windows_arm64 import SLING_BIN')
   else:
-    from sling_windows_amd64 import SLING_BIN
+    exec('from sling_windows_amd64 import SLING_BIN')
 elif platform.system() == 'Darwin':
-  from sling_mac_universal import SLING_BIN
+   exec('from sling_mac_universal import SLING_BIN')
+
+#################################################################
 
 class JsonEncoder(JSONEncoder):
   def default(self, o):
