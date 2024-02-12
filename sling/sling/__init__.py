@@ -5,11 +5,13 @@ from typing import Iterable, List, Union, Dict
 from json import JSONEncoder
 
 #################################################################
-# Logic to import binaries for various operating systems and architecture.
-# Since the binary is built in Go, it needs to be added to the pypi
-# package via the MANIFEST.in. And since there are multiple binaries (one per OS/ARCH)
-# it is necessary to split them out to avoid exceeding the PyPi quotas.
-# This also allows a faster install via pip and saves bandwidth.
+# Logic to import the proper binary for the respective operating 
+# systems and architecture. Since the binaries are built in Go, 
+# they needs to be added to the PyPi sling package via a `MANIFEST.in` file.
+# And since there is approximately one binary per OS/ARCH,
+# it is necessary to split them out into their own PyPi package
+# to avoid exceeding the PyPi quotas. This also allows a faster 
+# install via pip and saves bandwidth.
 
 SLING_BIN = None
 
