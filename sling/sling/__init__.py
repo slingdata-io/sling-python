@@ -287,10 +287,10 @@ class Replication:
     # dump config
     with open(self.temp_file, 'w') as file:
       config = dict(
-        source=self.source.conn,
-        target=self.target.conn,
-        defaults=self.replication.defaults,
-        streams=self.replication.streams,
+        source=self.source,
+        target=self.target,
+        defaults=self.defaults,
+        streams=self.streams,
         env=self.env,
       )
 
