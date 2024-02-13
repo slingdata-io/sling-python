@@ -109,7 +109,7 @@ class Source:
   def __init__(self, 
                 conn: str = None,
                 stream: str = None,
-                primary_key: List[str] = None,
+                primary_key: List[str] = [],
                 update_key: str = None,
                 limit: int = None,
                 options: dict = {},
@@ -217,7 +217,7 @@ class ReplicationStream:
           self,
           mode: str = None,
           object: str = None,
-          primary_key: List[str] = None,
+          primary_key: List[str] = [],
           update_key: str = None,
           sql: str = None,
           source_options: Union[SourceOptions, dict]={},
@@ -251,10 +251,12 @@ class Replication:
   """
   Task represents a sling replication. Call the `run` method to execute it.
 
-  `source` represents the source object using the `Source` class.
-  `target` represents the target object using the `Target` class.
-  `replication` represents the replication object using the `Replication` class
-  `options` represent the options object using the `Options` class.
+  `source` represents the source connection name.
+  `target` represents the target connection name.
+  `defaults` represents the default stream properties to use.
+  `streams` represents a dictionary of streams.
+  `env` represents the environment variable to apply.
+  `debug` represents the whether the logger should be set at DEBUG level.
   """
 
   source: str
@@ -269,7 +271,7 @@ class Replication:
           source: str=None,
           target: str=None,
           defaults: Union[ReplicationStream, dict]={},
-          streams: Dict[str, ReplicationStream] = {},
+          streams: Dict[str, Union[ReplicationStream, dict]] = {},
           env: dict={},
           debug=False
   ):
@@ -280,6 +282,12 @@ class Replication:
       defaults = ReplicationStream(**defaults)
     self.defaults = defaults
 
+    if isinstance(streams, dict):
+      for key, replication in streams.items():
+        if isinstance(replication, dict):
+          replication = ReplicationStream(**replication)
+        streams[key] = replication
+        
     self.streams = streams
     self.env = env
     self.debug = debug
