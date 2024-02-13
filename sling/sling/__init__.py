@@ -7,7 +7,7 @@ from json import JSONEncoder
 #################################################################
 # Logic to import the proper binary for the respective operating 
 # systems and architecture. Since the binaries are built in Go, 
-# they needs to be added to the PyPi sling package via a `MANIFEST.in` file.
+# they need to be added to the PyPi sling package via a `MANIFEST.in` file.
 # And since there is approximately one binary per OS/ARCH,
 # it is necessary to split them out into their own PyPi package
 # to avoid exceeding the PyPi quotas. This also allows a faster 
