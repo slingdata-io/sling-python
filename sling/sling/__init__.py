@@ -136,6 +136,7 @@ class TargetOptions:
   column_casing: str
   add_new_columns: bool
   adjust_column_type: bool
+  table_keys: dict
   table_ddl: str
   table_tmp: str
   pre_sql: str
@@ -155,6 +156,7 @@ class TargetOptions:
               column_casing: str = None,
               add_new_columns: bool = None,
               adjust_column_type: bool = None,
+              table_keys: dict = {},
               table_ddl: str = None,
               table_tmp: str = None,
               pre_sql: str = None,
@@ -173,6 +175,7 @@ class TargetOptions:
     self.column_casing = column_casing
     self.add_new_columns = add_new_columns
     self.adjust_column_type = adjust_column_type
+    self.table_keys = table_keys
     self.table_ddl = table_ddl
     self.table_tmp = table_tmp
     self.pre_sql = pre_sql
