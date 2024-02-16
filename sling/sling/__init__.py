@@ -1,5 +1,5 @@
 
-import os, sys, tempfile, uuid, json, platform
+import os, sys, tempfile, uuid, json, platform, traceback
 from subprocess import PIPE, Popen, STDOUT
 from typing import Iterable, List, Union, Dict
 from json import JSONEncoder
@@ -37,6 +37,10 @@ elif platform.system() == 'Darwin':
   exec('from sling_mac_universal import SLING_BIN')
 
 #################################################################
+
+is_package = lambda text: any([
+    text in line.lower()
+    for line in traceback.format_stack()[:-1]])
 
 class JsonEncoder(JSONEncoder):
   def default(self, o):
@@ -491,7 +495,12 @@ def cli(*args, return_output=False):
 
 def _exec_cmd(cmd, stdin=None, stdout=PIPE, stderr=STDOUT, env:dict=None):
   lines = []
-  
+  env = env or {}
+
+  for pkg in ['dagster', 'airflow', 'temporal', 'orkes']:
+    if is_package(pkg):
+      env['SLING_PACKAGE'] = pkg
+
   with Popen(cmd, shell=True, env=env, stdin=stdin, stdout=stdout, stderr=stderr) as proc:
     if stdout and stdout != STDOUT and proc.stdout:
       for line in proc.stdout:
