@@ -2,21 +2,6 @@ import os, platform, pathlib
 from setuptools import setup
 from setuptools import find_packages
 
-install_requires = []
-if platform.system() == 'Linux':
-  if platform.machine() == 'aarch64':
-    install_requires = ['sling-linux-arm64']
-  else:
-    install_requires = ['sling-linux-amd64']
-elif platform.system() == 'Windows':
-  if platform.machine() == 'aarch64':
-    install_requires = ['sling-windows-arm64']
-  else:
-    install_requires = ['sling-windows-amd64']
-elif platform.system() == 'Darwin':
-  install_requires = ['sling-mac-universal']
-else:
-  raise Exception(f'platform "{platform.system()}" ({platform.system()}) not supported.')
 
 SLING_VERSION = '0.0.0dev'
 
@@ -30,6 +15,22 @@ readme_path = pathlib.Path(os.path.join(os.path.dirname(__file__), 'README.md'))
 if readme_path.exists():
   with readme_path.open() as file:
     README = file.read()
+
+install_requires = []
+if platform.system() == 'Linux':
+  if platform.machine() == 'aarch64':
+    install_requires = [f'sling-linux-arm64=={SLING_VERSION}']
+  else:
+    install_requires = [f'sling-linux-amd64=={SLING_VERSION}']
+elif platform.system() == 'Windows':
+  if platform.machine() == 'aarch64':
+    install_requires = [f'sling-windows-arm64=={SLING_VERSION}']
+  else:
+    install_requires = [f'sling-windows-amd64=={SLING_VERSION}']
+elif platform.system() == 'Darwin':
+  install_requires = [f'sling-mac-universal=={SLING_VERSION}']
+else:
+  raise Exception(f'platform "{platform.system()}" ({platform.system()}) not supported.')
 
 setup(
   name='sling',
