@@ -23,12 +23,12 @@ if platform.system() == 'Linux':
   else:
     install_requires = [f'sling-linux-amd64=={SLING_VERSION}']
 elif platform.system() == 'Windows':
-  if platform.machine() == 'aarch64':
+  if platform.machine() == 'ARM64':
     install_requires = [f'sling-windows-arm64=={SLING_VERSION}']
   else:
     install_requires = [f'sling-windows-amd64=={SLING_VERSION}']
 elif platform.system() == 'Darwin':
-  if platform.machine() == 'aarch64':
+  if platform.machine() == 'arm64':
     install_requires = [f'sling-mac-arm64=={SLING_VERSION}']
   else:
     install_requires = [f'sling-mac-amd64=={SLING_VERSION}']
