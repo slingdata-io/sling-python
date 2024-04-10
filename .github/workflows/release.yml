@@ -93,18 +93,49 @@ jobs:
           pip install -e .
           python setup.py sdist && twine upload --verbose --skip-existing dist/*
         
-      - name: Release sling-mac-universal to PyPi
+      - name: Release sling-mac-amd64 to PyPi
         run: |
-          export BASE_FOLDER=sling_base/sling-mac-universal
-          export BIN_FOLDER=$BASE_FOLDER/sling_mac_universal/bin
+          export BASE_FOLDER=sling_base/sling-mac-amd64
+          export BIN_FOLDER=$BASE_FOLDER/sling_mac_amd64/bin
 
           mkdir -p $BIN_FOLDER
 
           cd $BIN_FOLDER
 
-          wget -q 'https://github.com/slingdata-io/sling-cli/releases/latest/download/sling_darwin_all.tar.gz'
-          tar xf sling_darwin_all.tar.gz
-          mv sling sling-mac
+          wget -q 'https://github.com/slingdata-io/sling-cli/releases/latest/download/sling_darwin_amd64.tar.gz'
+          tar xf sling_darwin_amd64.tar.gz
+          mv sling sling-mac-amd64
+
+          rm -f *.tar.gz
+
+          cd -
+          chmod -R 755 $BIN_FOLDER
+
+          export SLING_VERSION=$( sling_base/sling-linux-amd64/sling_linux_amd64/bin/sling-linux-amd64 --version | sed 's/Version: //')
+          echo $SLING_VERSION > $BIN_FOLDER/VERSION
+          if [[ $VERSION_OVERRIDE ]]
+          then
+                echo $VERSION_OVERRIDE > $BIN_FOLDER/VERSION
+          fi
+          
+          cp README.md $BASE_FOLDER/
+
+          cd $BASE_FOLDER
+          pip install -e .
+          python setup.py sdist && twine upload --verbose --skip-existing dist/*
+        
+      - name: Release sling-mac-arm64 to PyPi
+        run: |
+          export BASE_FOLDER=sling_base/sling-mac-arm64
+          export BIN_FOLDER=$BASE_FOLDER/sling_mac_arm64/bin
+
+          mkdir -p $BIN_FOLDER
+
+          cd $BIN_FOLDER
+
+          wget -q 'https://github.com/slingdata-io/sling-cli/releases/latest/download/sling_darwin_arm64.tar.gz'
+          tar xf sling_darwin_arm64.tar.gz
+          mv sling sling-mac-arm64
 
           rm -f *.tar.gz
 

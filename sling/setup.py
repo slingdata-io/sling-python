@@ -28,7 +28,10 @@ elif platform.system() == 'Windows':
   else:
     install_requires = [f'sling-windows-amd64=={SLING_VERSION}']
 elif platform.system() == 'Darwin':
-  install_requires = [f'sling-mac-universal=={SLING_VERSION}']
+  if platform.machine() == 'aarch64':
+    install_requires = [f'sling-mac-arm64=={SLING_VERSION}']
+  else:
+    install_requires = [f'sling-mac-amd64=={SLING_VERSION}']
 else:
   raise Exception(f'platform "{platform.system()}" ({platform.system()}) not supported.')
 

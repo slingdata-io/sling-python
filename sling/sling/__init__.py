@@ -19,7 +19,8 @@ insert = lambda f: sys.path.insert(1, os.path.join(SLING_BASE, f))
 insert('sling-windows-amd64')
 insert('sling-linux-amd64')
 insert('sling-linux-arm64')
-insert('sling-mac-universal')
+insert('sling-mac-amd64')
+insert('sling-mac-arm64')
 
 SLING_BIN = None
 
@@ -34,7 +35,10 @@ elif platform.system() == 'Windows':
   else:
     exec('from sling_windows_amd64 import SLING_BIN')
 elif platform.system() == 'Darwin':
-  exec('from sling_mac_universal import SLING_BIN')
+  if platform.machine() == 'aarch64':
+    exec('from sling_mac_arm64 import SLING_BIN')
+  else:
+    exec('from sling_mac_amd64 import SLING_BIN')
 
 #################################################################
 
