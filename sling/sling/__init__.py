@@ -30,12 +30,12 @@ if platform.system() == 'Linux':
   else:
     exec('from sling_linux_amd64 import SLING_BIN')
 elif platform.system() == 'Windows':
-  if platform.machine() == 'aarch64':
+  if platform.machine() == 'ARM64':
     exec('from sling_windows_arm64 import SLING_BIN')
   else:
     exec('from sling_windows_amd64 import SLING_BIN')
 elif platform.system() == 'Darwin':
-  if platform.machine() == 'aarch64':
+  if platform.machine() == 'arm64':
     exec('from sling_mac_arm64 import SLING_BIN')
   else:
     exec('from sling_mac_amd64 import SLING_BIN')
