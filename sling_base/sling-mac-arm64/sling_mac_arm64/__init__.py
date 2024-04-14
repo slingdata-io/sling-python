@@ -5,7 +5,7 @@ import os, platform, pathlib
 BIN_FOLDER = os.path.join(os.path.dirname(__file__), 'bin')
 
 if platform.system() == 'Darwin':
-  if platform.machine() == 'aarch64':
+  if platform.machine() == 'arm64':
     SLING_BIN = os.path.join(BIN_FOLDER,'sling-mac-arm64')
   else:
     SLING_BIN = os.path.join(BIN_FOLDER,'sling-mac-amd64')
