@@ -21,37 +21,57 @@ sling run --src-conn MY_PG --src-stream myschema.mytable \
 Or passing a yaml/json string or file
 
 ```shell
-sling run -c '
-source:
-  conn: MY_PG
-  stream: myschema.mytable
+cat '
+source: MY_POSTGRES
+target: MY_SNOWFLAKE
 
-target:
-  conn: YOUR_SNOWFLAKE
-  object: yourschema.yourtable
+# default config options which apply to all streams
+defaults:
+  mode: full-refresh
+  object: new_schema.{stream_schema}_{stream_table}
 
-mode: full-refresh
-'
-# OR
-sling run -c /path/to/config.json
+streams:
+  my_schema.*:
+' > /path/to/replication.yaml
+
+sling run -r /path/to/replication.yaml
 ```
 
 ### From Lib
 
+Run a replication from file:
+
 ```python
-from sling import Sling
+import yaml
+from sling import Replication
 
-config = {
-  'source': {
-    'conn': 'MY_PG',
-    'stream': "select * from my_table",
-  },
-  'target': {
-    'conn':  "s3://my_bucket/my_folder/new_file.csv",
-  },
-}
+with open('path/to/replication.yaml') as file:
+  config = yaml.load(file, Loader=yaml.FullLoader)
 
-Sling(**config).run()
+replication = Replication(**config)
+
+replication.run()
+```
+
+Build a replication dynamically:
+
+```python
+from sling import Replication, ReplicationStream
+
+# build sling replication
+streams = {}
+for (folder, table_name) in list(folders):
+  streams[folder] = ReplicationStream(mode='full-refresh', object=table_name, primary_key='_hash_id')
+
+replication = Replication(
+  source='aws_s3',
+  target='snowflake',
+  streams=streams,
+  env=dict(SLING_STREAM_URL_COLUMN='true', SLING_LOADED_AT_COLUMN='true'),
+  debug=True,
+)
+
+replication.run()
 ```
 
 ## Config Schema
