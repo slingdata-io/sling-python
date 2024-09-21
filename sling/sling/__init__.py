@@ -344,6 +344,7 @@ class Replication:
   
   def run(self, return_output=False, env:dict=None, stdin=None):
     cmd = self._prep_cmd()
+    env = env or self.env
     return _run(cmd, self.temp_file, return_output=return_output, env=env, stdin=stdin)
 
 class Task:
@@ -410,6 +411,7 @@ class Task:
   
   def run(self, return_output=False, env:dict=None, stdin=None):
     cmd = self._prep_cmd()
+    env = env or self.env
     return _run(cmd, self.temp_file, return_output=return_output, env=env, stdin=stdin)
 
   def stream(self, env:dict=None, stdin=None) -> Iterable[list]:
@@ -445,8 +447,8 @@ def _run(cmd: str, temp_file: str, return_output=False, env:dict=None, stdin=Non
   """
   lines = []
   try:
+    env = env or {}
     for k,v in os.environ.items():
-      env = env or {}
       env[k] = env.get(k, v)
 
     for line in _exec_cmd(cmd, env=env, stdin=stdin):
