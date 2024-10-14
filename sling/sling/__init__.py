@@ -510,7 +510,7 @@ def _exec_cmd(cmd, stdin=None, stdout=PIPE, stderr=STDOUT, env:dict=None):
   with Popen(cmd, shell=True, env=env, stdin=stdin, stdout=stdout, stderr=stderr) as proc:
     if stdout and stdout != STDOUT and proc.stdout:
       for line in proc.stdout:
-        line = str(line.strip(), 'utf-8')
+        line = str(line.strip(), 'utf-8', errors='replace')
         yield line
 
     proc.wait()
