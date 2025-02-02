@@ -50,11 +50,30 @@ class JsonEncoder(JSONEncoder):
   def default(self, o):
     return o.__dict__
 
+class HookMap:
+  start: List[dict]
+  end: List[dict]
+  pre: List[dict]
+  post: List[dict]
+
+  def __init__(self, 
+              start: List[dict] = None,
+              end: List[dict] = None,
+              pre: List[dict] = None,
+              post: List[dict] = None,
+              ) -> None:
+    self.start = start
+    self.end = end
+    self.pre = pre
+    self.post = post
+
 class SourceOptions:
   trim_space: bool
   empty_as_null: bool
   header: bool
   flatten: bool
+  fields_per_rec: int
+  chunk_size: str
   compression: str
   format: str
   null_if: str
@@ -66,6 +85,7 @@ class SourceOptions:
   sheet: str
   range: str
   limit: int
+  offset: int
   columns: dict
   transforms: list
 
@@ -74,6 +94,8 @@ class SourceOptions:
               empty_as_null: bool = None,
               header: bool = None,
               flatten: bool = None,
+              fields_per_rec: int = None,
+              chunk_size: str = None,
               compression: str = None,
               format: str = None,
               null_if: str = None,
@@ -85,6 +107,7 @@ class SourceOptions:
               sheet: str = None,
               range: str = None,
               limit: int = None,
+              offset: int = None,
               columns: dict = {},
               transforms: list = None,
               ) -> None:
@@ -92,6 +115,8 @@ class SourceOptions:
     self.empty_as_null = empty_as_null
     self.header = header
     self.flatten = flatten
+    self.fields_per_rec = fields_per_rec
+    self.chunk_size = chunk_size
     self.compression = compression
     self.format = format
     self.null_if = null_if
@@ -103,6 +128,7 @@ class SourceOptions:
     self.sheet = sheet
     self.range = range
     self.limit = limit
+    self.offset = offset
     self.columns = columns
     self.transforms = transforms
 
@@ -134,6 +160,7 @@ class TargetOptions:
   header: bool
   compression: str
   concurrency: int
+  batch_limit: int
   datetime_format: str
   delimiter: str
   file_max_rows: int
@@ -141,6 +168,8 @@ class TargetOptions:
   format: str
   max_decimals: int
   use_bulk: bool
+  ignore_existing: bool
+  delete_missing: bool
   column_casing: str
   add_new_columns: bool
   adjust_column_type: bool
@@ -154,6 +183,7 @@ class TargetOptions:
               header: bool = None,
               compression: str = None,
               concurrency: int = None,
+              batch_limit: int = None,
               datetime_format: str = None,
               delimiter: str = None,
               file_max_rows: int = None,
@@ -161,6 +191,8 @@ class TargetOptions:
               format: str = None,
               max_decimals: int = None,
               use_bulk: bool = None,
+              ignore_existing: bool = None,
+              delete_missing: bool = None,
               column_casing: str = None,
               add_new_columns: bool = None,
               adjust_column_type: bool = None,
@@ -173,6 +205,7 @@ class TargetOptions:
     self.header = header
     self.compression = compression
     self.concurrency = concurrency
+    self.batch_limit = batch_limit
     self.datetime_format = datetime_format
     self.delimiter = delimiter
     self.file_max_rows = file_max_rows
@@ -180,6 +213,8 @@ class TargetOptions:
     self.format = format
     self.max_decimals = max_decimals
     self.use_bulk = use_bulk
+    self.ignore_existing = ignore_existing
+    self.delete_missing = delete_missing
     self.column_casing = column_casing
     self.add_new_columns = add_new_columns
     self.adjust_column_type = adjust_column_type
@@ -215,31 +250,59 @@ class TaskOptions:
     self.debug = kwargs.get('debug')
 
 class ReplicationStream:
+  id: str
+  description: str
   mode: str
   object: str
+  select: List[str]
+  where: str
   primary_key: List[str]
   update_key: str
   sql: str
+  tags: List[str]
   source_options: SourceOptions
   target_options: TargetOptions
+  schedule: str
   disabled: bool
+  hooks: HookMap
 
   def __init__(
           self,
+          id: str = None,
+          description: str = None,
           mode: str = None,
           object: str = None,
+          select: List[str] = [],
+          where: str = None,
           primary_key: List[str] = [],
           update_key: str = None,
           sql: str = None,
+          tags: List[str] = [],
           source_options: Union[SourceOptions, dict]={},
           target_options: Union[TargetOptions, dict]={},
+          schedule: str = None,
           disabled: bool = None,
+          transforms = None,
+          columns = None,
+          hooks: Union[HookMap, dict] = None,
   ):
+    self.id = id
+    self.description = description
     self.mode = mode
     self.object = object
+    self.select = select
+    self.where = where
     self.primary_key = primary_key
     self.update_key = update_key
     self.sql = sql
+    self.tags = tags
+    self.schedule = schedule
+    self.transforms = transforms
+    self.columns = columns
+
+    if isinstance(hooks, dict):
+      hooks = HookMap(**hooks)
+    self.hooks = hooks
 
     if isinstance(source_options, dict):
       source_options = SourceOptions(**source_options)
@@ -265,6 +328,7 @@ class Replication:
   `source` represents the source connection name.
   `target` represents the target connection name.
   `defaults` represents the default stream properties to use.
+  `hooks` represents the replication level hooks to use.
   `streams` represents a dictionary of streams.
   `env` represents the environment variable to apply.
   `debug` represents the whether the logger should be set at DEBUG level.
@@ -273,6 +337,7 @@ class Replication:
   source: str
   target: str
   defaults: ReplicationStream
+  hooks: HookMap
   streams: Dict[str, ReplicationStream]
   env: dict
   debug: bool
@@ -282,12 +347,17 @@ class Replication:
           source: str=None,
           target: str=None,
           defaults: Union[ReplicationStream, dict]={},
+          hooks: Union[HookMap, dict] = None,
           streams: Dict[str, Union[ReplicationStream, dict]] = {},
           env: dict={},
           debug=False
   ):
     self.source: str = source
     self.target: str = target
+
+    if isinstance(hooks, dict):
+      hooks = HookMap(**hooks)
+    self.hooks = hooks
 
     if isinstance(defaults, dict):
       defaults = ReplicationStream(**defaults)
