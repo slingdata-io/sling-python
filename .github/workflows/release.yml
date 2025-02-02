@@ -1,10 +1,10 @@
 name: Release to PyPi
 
-on: 
+on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'version override'     
+        description: 'version override'
         required: false
   repository_dispatch:
     types: [release-python]
@@ -21,16 +21,16 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
-        
+
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
           python-version: '3.9'
-        
+
       - name: Pip Install
         run: |
-          pip install twine
-        
+          pip install build twine
+
       - name: Release sling-linux-amd64 to PyPi
         run: |
           export BASE_FOLDER=sling_base/sling-linux-amd64
@@ -60,8 +60,8 @@ jobs:
 
           cd sling_base/sling-linux-amd64
           pip install -e .
-          python setup.py sdist && twine upload --verbose --skip-existing dist/*
-        
+          python -m build && twine upload --verbose --skip-existing dist/*
+
       - name: Release sling-linux-arm64 to PyPi
         run: |
           export BASE_FOLDER=sling_base/sling-linux-arm64
@@ -86,13 +86,13 @@ jobs:
           then
                 echo $VERSION_OVERRIDE > $BIN_FOLDER/VERSION
           fi
-          
+
           cp README.md $BASE_FOLDER/
 
           cd $BASE_FOLDER
           pip install -e .
-          python setup.py sdist && twine upload --verbose --skip-existing dist/*
-        
+          python -m build && twine upload --verbose --skip-existing dist/*
+
       - name: Release sling-mac-amd64 to PyPi
         run: |
           export BASE_FOLDER=sling_base/sling-mac-amd64
@@ -117,13 +117,13 @@ jobs:
           then
                 echo $VERSION_OVERRIDE > $BIN_FOLDER/VERSION
           fi
-          
+
           cp README.md $BASE_FOLDER/
 
           cd $BASE_FOLDER
           pip install -e .
-          python setup.py sdist && twine upload --verbose --skip-existing dist/*
-        
+          python -m build && twine upload --verbose --skip-existing dist/*
+
       - name: Release sling-mac-arm64 to PyPi
         run: |
           export BASE_FOLDER=sling_base/sling-mac-arm64
@@ -148,13 +148,13 @@ jobs:
           then
                 echo $VERSION_OVERRIDE > $BIN_FOLDER/VERSION
           fi
-          
+
           cp README.md $BASE_FOLDER/
 
           cd $BASE_FOLDER
           pip install -e .
-          python setup.py sdist && twine upload --verbose --skip-existing dist/*
-        
+          python -m build && twine upload --verbose --skip-existing dist/*
+
       - name: Release sling-windows-amd64 to PyPi
         run: |
           export BASE_FOLDER=sling_base/sling-windows-amd64
@@ -179,13 +179,13 @@ jobs:
           then
                 echo $VERSION_OVERRIDE > $BIN_FOLDER/VERSION
           fi
-          
+
           cp README.md $BASE_FOLDER/
 
           cd $BASE_FOLDER
           pip install -e .
-          python setup.py sdist && twine upload --verbose --skip-existing dist/*
-        
+          python -m build && twine upload --verbose --skip-existing dist/*
+
       - name: Release sling to PyPi
         run: |
           export SLING_VERSION=$( sling_base/sling-linux-amd64/sling_linux_amd64/bin/sling-linux-amd64 --version | sed 's/Version: //')
@@ -194,9 +194,9 @@ jobs:
           then
                 echo $VERSION_OVERRIDE > sling/VERSION
           fi
-          
+
           cp README.md sling/
-          
+
           cd sling
           pip install -e .
-          python setup.py sdist && twine upload --verbose --skip-existing dist/*
+          python -m build && twine upload --verbose --skip-existing dist/*
