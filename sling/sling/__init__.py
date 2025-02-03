@@ -244,6 +244,7 @@ class Target:
 
 class TaskOptions:
   stdout: bool
+  debug: bool
 
   def __init__(self, **kwargs) -> None:
     self.stdout = kwargs.get('stdout')
@@ -342,6 +343,9 @@ class Replication:
   env: dict
   debug: bool
 
+  file_path: str
+  temp_file: str
+
   def __init__(
           self,
           source: str=None,
@@ -350,7 +354,8 @@ class Replication:
           hooks: Union[HookMap, dict] = None,
           streams: Dict[str, Union[ReplicationStream, dict]] = {},
           env: dict={},
-          debug=False
+          debug=False,
+          file_path: str=None
   ):
     self.source: str = source
     self.target: str = target
@@ -373,6 +378,8 @@ class Replication:
     self.env = env
     self.debug = debug
 
+    self.file_path = file_path
+
   def add_streams(self, streams: Dict[str, ReplicationStream]):
     self.streams.update(streams)
 
@@ -390,6 +397,10 @@ class Replication:
     self.defaults.mode = mode
 
   def _prep_cmd(self):
+    debug = '-d' if self.debug else ''
+
+    if self.file_path:
+      return f'{SLING_BIN} run {debug} -r "{self.file_path}"'
 
     # generate temp file
     uid = uuid.uuid4()
@@ -408,8 +419,6 @@ class Replication:
 
       json.dump(config, file, cls=JsonEncoder)
     
-    debug = '-d' if self.debug else ''
-
     return f'{SLING_BIN} run {debug} -r "{self.temp_file}"'
   
   def run(self, return_output=False, env:dict=None, stdin=None):
@@ -571,8 +580,12 @@ def cli(*args, return_output=False):
 
 def _exec_cmd(cmd, stdin=None, stdout=PIPE, stderr=STDOUT, env:dict=None):
   lines = []
-  env = env or {}
 
+  env = env or {}
+  for k,v in os.environ.items():
+    env[k] = env.get(k, v)
+
+  env['SLING_PACKAGE'] = 'python'
   for pkg in ['dagster', 'airflow', 'temporal', 'orkes']:
     if is_package(pkg):
       env['SLING_PACKAGE'] = pkg
@@ -589,4 +602,6 @@ def _exec_cmd(cmd, stdin=None, stdout=PIPE, stderr=STDOUT, env:dict=None):
       lines = '\n'.join(list(proc.stderr))
 
     if proc.returncode != 0:
-      raise Exception(f'Sling command failed:\n{lines}')
+      if len(lines) > 0:
+          raise Exception(f'Sling command failed:\n{lines}')
+      raise Exception(f'Sling command failed')
