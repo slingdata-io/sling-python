@@ -22,23 +22,25 @@ insert('sling-linux-arm64')
 insert('sling-mac-amd64')
 insert('sling-mac-arm64')
 
-SLING_BIN = None
+# allows provision of a custom path for sling binary
+SLING_BIN = os.getenv("SLING_BINARY")
 
-if platform.system() == 'Linux':
-  if platform.machine() == 'aarch64':
-    exec('from sling_linux_arm64 import SLING_BIN')
-  else:
-    exec('from sling_linux_amd64 import SLING_BIN')
-elif platform.system() == 'Windows':
-  if platform.machine() == 'ARM64':
-    exec('from sling_windows_arm64 import SLING_BIN')
-  else:
-    exec('from sling_windows_amd64 import SLING_BIN')
-elif platform.system() == 'Darwin':
-  if platform.machine() == 'arm64':
-    exec('from sling_mac_arm64 import SLING_BIN')
-  else:
-    exec('from sling_mac_amd64 import SLING_BIN')
+if not SLING_BIN:
+  if platform.system() == 'Linux':
+    if platform.machine() == 'aarch64':
+      exec('from sling_linux_arm64 import SLING_BIN')
+    else:
+      exec('from sling_linux_amd64 import SLING_BIN')
+  elif platform.system() == 'Windows':
+    if platform.machine() == 'ARM64':
+      exec('from sling_windows_arm64 import SLING_BIN')
+    else:
+      exec('from sling_windows_amd64 import SLING_BIN')
+  elif platform.system() == 'Darwin':
+    if platform.machine() == 'arm64':
+      exec('from sling_mac_arm64 import SLING_BIN')
+    else:
+      exec('from sling_mac_amd64 import SLING_BIN')
 
 #################################################################
 
