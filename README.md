@@ -137,3 +137,9 @@ pipeline.run()
   }
 }
 ```
+
+## Testing
+
+```bash
+pytest sling/tests/tests.py -v
+```
