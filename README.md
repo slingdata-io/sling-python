@@ -45,6 +45,11 @@ Run a replication from file:
 import yaml
 from sling import Replication
 
+# From a YAML file
+replication = Replication(file_path="path/to/replication.yaml")
+replication.run()
+
+# Or load into object
 with open('path/to/replication.yaml') as file:
   config = yaml.load(file, Loader=yaml.FullLoader)
 
@@ -72,6 +77,27 @@ replication = Replication(
 )
 
 replication.run()
+```
+
+Run a [Pipeline](https://docs.slingdata.io/concepts/pipeline):
+
+```python
+# From a YAML file
+pipeline = Pipeline(file_path="path/to/pipeline.yaml")
+pipeline.run()
+
+# Or programmatically
+pipeline = Pipeline(
+    steps=[
+        {"type": "log", "message": "Hello world"},
+        {"type": "copy", "from": "sftp//path/to/file", "to": "aws_s3/path/to/file"},
+        {"type": "replication", "path": "path/to/replication.yaml"},
+        {"type": "http", "url": "https://trigger.webhook.com"},
+        {"type": "command", "command": ["ls", "-l"], "print": True}
+    ],
+    env={"MY_VAR": "value"}
+)
+pipeline.run()
 ```
 
 ## Config Schema

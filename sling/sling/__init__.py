@@ -428,6 +428,58 @@ class Replication:
     env = env or self.env
     return _run(cmd, self.temp_file, return_output=return_output, env=env, stdin=stdin)
 
+class Pipeline:
+  """
+  Pipeline represents a sling pipeline. Call the `run` method to execute it.
+
+  `steps` represents a list of pipeline steps.
+  `env` represents the environment variables to apply.
+  `file_path` represents the path to the pipeline YAML file.
+  """
+  steps: List[dict]
+  env: dict
+  file_path: str
+  temp_file: str
+
+  def __init__(
+          self,
+          steps: List[dict] = [],
+          env: dict = {},
+          file_path: str = None
+  ):
+    self.steps = steps
+    self.env = env
+    self.file_path = file_path
+
+  def _prep_cmd(self):
+    if self.file_path:
+      return f'{SLING_BIN} run -p "{self.file_path}"'
+
+    # generate temp file
+    uid = uuid.uuid4()
+    temp_dir = tempfile.gettempdir()
+    self.temp_file = os.path.join(temp_dir, f'sling-pipeline-{uid}.yaml')
+
+    # dump config
+    with open(self.temp_file, 'w') as file:
+      config = dict(
+        steps=self.steps,
+        env=self.env,
+      )
+      json.dump(config, file, cls=JsonEncoder)
+    
+    return f'{SLING_BIN} run -p "{self.temp_file}"'
+  
+  def run(self, return_output=False, env:dict=None, stdin=None):
+    """
+    Runs the pipeline. Use `return_output` as `True` to return the stdout+stderr output at end. 
+    `env` accepts a dictionary which defines the environment.
+    """
+    cmd = self._prep_cmd()
+    env = env or self.env
+    return _run(cmd, self.temp_file, return_output=return_output, env=env, stdin=stdin)
+
+
 class Task:
   """
   Task represents the main object to define a
