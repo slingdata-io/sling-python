@@ -40,7 +40,8 @@ def test_replication():
             ),
             "stream2": ReplicationStream(
                 object="schema.table2",
-                primary_key=["id"]
+                primary_key=["id"],
+                disabled=True
             )
         },
         env={"MY_VAR": "value"},
@@ -53,6 +54,7 @@ def test_replication():
     assert len(replication.streams) == 2
     assert replication.env["MY_VAR"] == "value"
     assert replication.debug == True
+    assert replication.streams["stream2"].disabled == True
 
     # Test stream management
     replication.add_streams({
