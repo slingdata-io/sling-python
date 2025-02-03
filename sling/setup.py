@@ -16,14 +16,24 @@ if readme_path.exists():
   with readme_path.open() as file:
     README = file.read()
 
-install_requires = [
-    f'sling-linux-arm64=={SLING_VERSION} ; platform_system=="Linux" and platform_machine=="aarch64"',
-    f'sling-linux-amd64=={SLING_VERSION} ; platform_system=="Linux" and platform_machine=="aarch64"',
-    f'sling-windows-arm64=={SLING_VERSION} ; platform_system=="Windows" and platform_machine=="ARM64"',
-    f'sling-windows-amd64=={SLING_VERSION} ; platform_system=="Windows" and platform_machine!="ARM64"',
-    f'sling-mac-arm64=={SLING_VERSION} ; platform_system=="Darwin" and platform_machine=="arm64"',
-    f'sling-mac-amd64=={SLING_VERSION} ; platform_system=="Darwin" and platform_machine!="arm64"',
-]
+install_requires = []
+if platform.system() == 'Linux':
+  if platform.machine() == 'aarch64':
+    install_requires = [f'sling-linux-arm64=={SLING_VERSION}']
+  else:
+    install_requires = [f'sling-linux-amd64=={SLING_VERSION}']
+elif platform.system() == 'Windows':
+  if platform.machine() == 'ARM64':
+    install_requires = [f'sling-windows-arm64=={SLING_VERSION}']
+  else:
+    install_requires = [f'sling-windows-amd64=={SLING_VERSION}']
+elif platform.system() == 'Darwin':
+  if platform.machine() == 'arm64':
+    install_requires = [f'sling-mac-arm64=={SLING_VERSION}']
+  else:
+    install_requires = [f'sling-mac-amd64=={SLING_VERSION}']
+else:
+  raise Exception(f'platform "{platform.system()}" ({platform.system()}) not supported.')
 
 setup(
   name='sling',
