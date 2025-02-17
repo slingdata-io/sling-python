@@ -19,7 +19,7 @@ if readme_path.exists():
 install_requires = [
     f'sling-linux-arm64=={SLING_VERSION} ; sys_platform=="linux" and platform_machine=="aarch64"',
     f'sling-linux-amd64=={SLING_VERSION} ; sys_platform=="linux" and platform_machine!="aarch64"',
-    f'sling-windows-arm64=={SLING_VERSION} ; sys_platform=="win32" and platform_machine=="ARM64"',
+    f'sling-windows-amd64=={SLING_VERSION} ; sys_platform=="win32" and platform_machine=="ARM64"',
     f'sling-windows-amd64=={SLING_VERSION} ; sys_platform=="win32" and platform_machine!="ARM64"',
     f'sling-mac-arm64=={SLING_VERSION} ; sys_platform=="darwin" and platform_machine=="arm64"',
     f'sling-mac-amd64=={SLING_VERSION} ; sys_platform=="darwin" and platform_machine!="arm64"',
