@@ -574,7 +574,7 @@ class Task:
 # conform to legacy module
 Sling = Task
 
-def _run(cmd: str, temp_file: str, return_output=False, print_output=True, env:dict=None, stdin=None):
+def _run(cmd: str, temp_file: str, return_output=False, print_output=False, env:dict=None, stdin=None):
   """
   Runs the task.
   
@@ -591,6 +591,8 @@ def _run(cmd: str, temp_file: str, return_output=False, print_output=True, env:d
     for line in _exec_cmd(cmd, env=env, stdin=stdin):
       if return_output:
         lines.append(line)
+      else:
+        print(line, flush=True)
       if print_output:
         print(line, flush=True)
     
