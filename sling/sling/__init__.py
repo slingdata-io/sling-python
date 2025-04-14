@@ -258,6 +258,7 @@ class ReplicationStream:
   mode: str
   object: str
   select: List[str]
+  files: List[str]
   where: str
   primary_key: List[str]
   update_key: str
@@ -276,6 +277,7 @@ class ReplicationStream:
           mode: str = None,
           object: str = None,
           select: List[str] = [],
+          files: List[str] = [],
           where: str = None,
           primary_key: List[str] = [],
           update_key: str = None,
@@ -294,6 +296,7 @@ class ReplicationStream:
     self.mode = mode
     self.object = object
     self.select = select
+    self.files = files
     self.where = where
     self.primary_key = primary_key
     self.update_key = update_key
