@@ -454,6 +454,7 @@ class Pipeline:
     self.steps = steps
     self.env = env
     self.file_path = file_path
+    self.temp_file = None
 
   def _prep_cmd(self):
     if self.file_path:
