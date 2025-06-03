@@ -421,6 +421,7 @@ class Replication:
         defaults=self.defaults,
         streams=self.streams,
         env=self.env,
+        hooks=self.hooks,
       )
 
       json.dump(config, file, cls=JsonEncoder)
