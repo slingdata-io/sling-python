@@ -82,11 +82,14 @@ replication.run()
 Run a [Pipeline](https://docs.slingdata.io/concepts/pipeline):
 
 ```python
+from sling import Pipeline
+from sling.hooks import HookLog, HookCopy, HookReplication, HookHTTP, HookCommand
+
 # From a YAML file
 pipeline = Pipeline(file_path="path/to/pipeline.yaml")
 pipeline.run()
 
-# Or programmatically
+# Or programmatically using dictionaries
 pipeline = Pipeline(
     steps=[
         {"type": "log", "message": "Hello world"},
@@ -94,6 +97,19 @@ pipeline = Pipeline(
         {"type": "replication", "path": "path/to/replication.yaml"},
         {"type": "http", "url": "https://trigger.webhook.com"},
         {"type": "command", "command": ["ls", "-l"], "print": True}
+    ],
+    env={"MY_VAR": "value"}
+)
+pipeline.run()
+
+# Or using Hook objects for type safety
+pipeline = Pipeline(
+    steps=[
+        HookLog(message="Hello world"),
+        HookCopy(from_="sftp//path/to/file", to="aws_s3/path/to/file"),
+        HookReplication(path="path/to/replication.yaml"),
+        HookHTTP(url="https://trigger.webhook.com"),
+        HookCommand(command=["ls", "-l"], print_output=True)
     ],
     env={"MY_VAR": "value"}
 )
