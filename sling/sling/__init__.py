@@ -1,5 +1,4 @@
-import os, sys, tempfile, uuid, json, traceback, subprocess, csv, warnings
-from io import StringIO
+import os, sys, tempfile, uuid, json, traceback, subprocess, csv, warnings, io
 from subprocess import PIPE, Popen, STDOUT
 from typing import Iterable, List, Union, Dict, Any, Optional, IO
 from json import JSONEncoder
@@ -744,7 +743,7 @@ class Sling:
     
     def _write_input_data_sync(self, stdin: IO, input_data: Iterable[Dict[str, Any]]):
         """Write input data to stdin, using Arrow IPC format if available, otherwise CSV"""
-        if HAS_ARROW and self._should_use_arrow():
+        if HAS_ARROW and self._should_use_arrow() and self._should_use_arrow_for_input():
             self._write_input_data_arrow(stdin, input_data)
         else:
             self._write_input_data_csv(stdin, input_data)
@@ -753,6 +752,25 @@ class Sling:
         """Determine if Arrow format should be used"""
         # Use Arrow if available and not disabled via env var
         return HAS_ARROW and os.environ.get('SLING_USE_ARROW', 'true').lower() != 'false'
+    
+    def _should_use_arrow_for_input(self) -> bool:
+        """Determine if Arrow format should be used for input data"""
+        # Only use Arrow for input if:
+        # 1. We're streaming to stdout (no target object)
+        # 2. Or the target explicitly requests Arrow format
+        if not self.tgt_object:
+            # Streaming to stdout
+            return True
+        
+        # Check if target format is explicitly set to Arrow
+        if self.tgt_options:
+            if isinstance(self.tgt_options, dict) and self.tgt_options.get('format') == Format.ARROW:
+                return True
+            elif hasattr(self.tgt_options, 'format') and self.tgt_options.format == Format.ARROW:
+                return True
+        
+        # For file targets, don't use Arrow for input unless explicitly requested
+        return False
     
     def _write_input_data_arrow(self, stdin: IO, input_data: Iterable[Dict[str, Any]]):
         """Write input data to stdin in Arrow IPC format"""
@@ -934,7 +952,7 @@ class Sling:
                         headers = list(record.keys())
                     
                     # Write CSV header
-                    csv_buffer = StringIO()
+                    csv_buffer = io.StringIO()
                     csv_writer = csv.writer(csv_buffer)
                     csv_writer.writerow(headers)
                     header_line = csv_buffer.getvalue()
@@ -947,7 +965,7 @@ class Sling:
                 
                 if headers:
                     # Write the record as CSV
-                    csv_buffer = StringIO()
+                    csv_buffer = io.StringIO()
                     csv_writer = csv.writer(csv_buffer)
                     # Ensure record has all fields, fill missing with empty string
                     row = [str(record.get(h, '')) for h in headers]
@@ -978,6 +996,25 @@ class Sling:
     def _read_output_stream_arrow(self, stdout: IO) -> Iterable[Dict[str, Any]]:
         """Read and parse Arrow IPC output from stdout"""
         try:
+            # Arrow IPC streams from sling include the ARROW1 magic bytes at the start
+            # We need to check and skip them if present, as pa.ipc.open_stream expects
+            # to start directly at the schema message
+            
+            # Peek at the first 6 bytes to check for magic bytes
+            first_bytes = stdout.read(6)
+            if first_bytes == b'ARROW1':
+                # Skip the 2-byte padding after magic bytes
+                stdout.read(2)
+            else:
+                # Not Arrow magic bytes, put them back
+                if hasattr(stdout, 'seek'):
+                    stdout.seek(0)
+                else:
+                    # If we can't seek, we need to handle this differently
+                    # Create a new stream with the bytes we read plus the rest
+                    remaining = stdout.read()
+                    stdout = io.BytesIO(first_bytes + remaining)
+            
             # Create Arrow IPC stream reader
             reader = pa.ipc.open_stream(stdout)
             
@@ -1001,18 +1038,18 @@ class Sling:
                     
                     yield record
                     
+        except pa.lib.ArrowInvalid as e:
+            # Arrow format error - likely not Arrow data
+            if self.debug:
+                sys.stderr.write(f"Error reading Arrow output stream: {e}\n")
+                sys.stderr.flush()
+            # Don't fallback to CSV - this indicates a format mismatch
+            raise SlingError(f"Failed to read Arrow output stream: {e}")
         except Exception as e:
             if self.debug:
                 sys.stderr.write(f"Error reading Arrow output stream: {e}\n")
                 sys.stderr.flush()
-            # Fallback to CSV parsing if Arrow fails
-            try:
-                # Reset stdout position if possible
-                if hasattr(stdout, 'seek'):
-                    stdout.seek(0)
-                yield from self._read_output_stream_csv(stdout)
-            except:
-                return
+            raise SlingError(f"Failed to read output stream: {e}")
     
     def _read_output_stream_csv(self, stdout: IO) -> Iterable[Dict[str, Any]]:
         """Read and parse CSV output from stdout"""

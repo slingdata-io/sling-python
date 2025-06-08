@@ -268,7 +268,8 @@ class TestSlingOutputStreaming:
         
         assert len(records) == len(sample_data)
         assert records[0]['name'] == 'John Doe'
-        assert records[0]['age'] == '30'  # CSV values are strings
+        # With Arrow format, types are preserved; with CSV, everything is strings
+        assert records[0]['age'] in (30, '30')  # Accept both int and string
         assert records[1]['name'] == 'Jane Smith'
     
     def test_json_output_streaming(self, temp_dir, sample_data):
@@ -390,11 +391,13 @@ class TestSlingRoundTrip:
         
         result_data = list(sling_read.stream())
         
-        # Verify data integrity (note: numeric values become strings in CSV)
+        # Verify data integrity
+        # With Arrow format, types are preserved; with CSV, everything is strings
         assert len(result_data) == len(sample_data)
         assert result_data[0]['name'] == sample_data[0]['name']
-        assert result_data[0]['id'] == str(sample_data[0]['id'])
-        assert result_data[0]['age'] == str(sample_data[0]['age'])
+        # Accept both typed and string values
+        assert result_data[0]['id'] in (sample_data[0]['id'], str(sample_data[0]['id']))
+        assert result_data[0]['age'] in (sample_data[0]['age'], str(sample_data[0]['age']))
     
     def test_roundtrip_json(self, temp_dir, sample_data):
         """Test complete roundtrip through JSON"""
