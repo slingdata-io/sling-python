@@ -41,7 +41,10 @@ setup(
   long_description=README,
   include_package_data=True, # uses MANIFEST.in
   install_requires=install_requires,
-  extras_require={},
+  extras_require={
+    'arrow': ['pyarrow'],
+    'recommended': ['pyarrow'],
+  },
   entry_points={
     'console_scripts': ['sling=sling:cli',],
   },

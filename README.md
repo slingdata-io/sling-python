@@ -122,6 +122,8 @@ Sling(
 
 #### Input Streaming - Python Data to Target
 
+> **💡 Tip:** Install `pip install sling[arrow]` for better streaming performance and improved data type handling.
+
 ```python
 import os
 from sling import Sling
