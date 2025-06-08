@@ -5,7 +5,7 @@ from .enum import Mode
 
 # Hook Base Class and Hook Types
 class Hook:
-  """Base hook class for all hook types"""
+  """Base hook class for all hook/step types"""
   
   def __init__(self, 
                id: str = None,
