@@ -1,4 +1,4 @@
-import os, sys, tempfile, uuid, json, traceback, subprocess, csv
+import os, sys, tempfile, uuid, json, traceback, subprocess, csv, warnings
 from io import StringIO
 from subprocess import PIPE, Popen, STDOUT
 from typing import Iterable, List, Union, Dict, Any, Optional, IO
@@ -9,6 +9,7 @@ from .enum import Mode, Format, Compression
 from .bin import SLING_BIN
 
 # Try to import pyarrow, fallback to CSV if not available
+_ARROW_WARNING_SHOWN = False
 try:
     import pyarrow as pa
     HAS_ARROW = True
@@ -1076,6 +1077,18 @@ class Sling:
         try:
             cmd = self._build_command()
             
+            # Warn about column typing when not using Arrow (only once)
+            if not (HAS_ARROW and self._should_use_arrow()):
+                global _ARROW_WARNING_SHOWN
+                if not _ARROW_WARNING_SHOWN:
+                    warnings.warn(
+                        "Data typing will be lost during CSV serialization when reading output. "
+                        "Install 'pip install sling[arrow]' for better performance and type preservation.",
+                        UserWarning,
+                        stacklevel=2
+                    )
+                    _ARROW_WARNING_SHOWN = True
+            
             # Prepare environment
             env = dict(os.environ)
             env['SLING_PACKAGE'] = 'python'
@@ -1172,6 +1185,18 @@ class Sling:
         stdin = subprocess.PIPE if self.input is not None else subprocess.DEVNULL
         
         try:
+            # Warn about column typing when using input data without Arrow (only once)
+            if self.input is not None and not (HAS_ARROW and self._should_use_arrow()):
+                global _ARROW_WARNING_SHOWN
+                if not _ARROW_WARNING_SHOWN:
+                    warnings.warn(
+                        "Data typing will be lost during CSV serialization when providing input data. "
+                        "Install 'pip install sling[arrow]' for better performance and type preservation.",
+                        UserWarning,
+                        stacklevel=2
+                    )
+                    _ARROW_WARNING_SHOWN = True
+            
             if self.debug:
                 sys.stderr.write(f"Debug: Running command: {' '.join(cmd)}\n")
                 sys.stderr.flush()
