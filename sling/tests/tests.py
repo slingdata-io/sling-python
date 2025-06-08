@@ -5,7 +5,7 @@ import tempfile
 from unittest.mock import patch, MagicMock, mock_open
 from sling import (
     Replication, ReplicationStream, Pipeline, Task, Source, Target, 
-    Mode, TaskOptions, cli, _run, _exec_cmd
+    Mode, TaskOptions, cli
 )
 from sling.options import SourceOptions, TargetOptions
 from sling.hooks import *
