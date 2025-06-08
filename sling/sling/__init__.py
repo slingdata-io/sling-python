@@ -536,12 +536,12 @@ class Sling:
         # Source parameters
         src_conn: Optional[str] = None,
         src_stream: Optional[str] = None,
-        src_options: Optional[Union[str, Dict[str, Any]]] = None,
+        src_options: Optional[Union[SourceOptions, Dict[str, Any]]] = None,
         
         # Target parameters
         tgt_conn: Optional[str] = None,
         tgt_object: Optional[str] = None,
-        tgt_options: Optional[Union[str, Dict[str, Any]]] = None,
+        tgt_options: Optional[Union[TargetOptions, Dict[str, Any]]] = None,
         
         # Stream manipulation
         select: Optional[Union[str, List[str]]] = None,
@@ -551,7 +551,7 @@ class Sling:
         streams: Optional[Union[str, List[str]]] = None,
         
         # Mode and limits
-        mode: Optional[str] = None,
+        mode: Optional[Union[Mode, str]] = None,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
         range: Optional[str] = None,
@@ -577,16 +577,16 @@ class Sling:
         Args:
             src_conn: Source database/storage connection
             src_stream: Source table, file path, or SQL query
-            src_options: Source configuration options (JSON/YAML string or dict)
+            src_options: Source configuration options (SourceOptions instance or dict)
             tgt_conn: Target database connection
             tgt_object: Target table or file path
-            tgt_options: Target configuration options (JSON/YAML string or dict)
+            tgt_options: Target configuration options (TargetOptions instance or dict)
             select: Columns to select (comma-separated string or list)
             where: WHERE clause for filtering
             transforms: Transform configuration (JSON/YAML string, dict, or list)
             columns: Column type casting (JSON/YAML string or dict)
             streams: Specific streams for replication (comma-separated string or list)
-            mode: Load mode (full-refresh, incremental, etc.)
+            mode: Load mode (Mode enum or string: full-refresh, incremental, etc.)
             limit: Maximum number of rows
             offset: Number of rows to offset
             range: Range for backfill mode
@@ -627,10 +627,15 @@ class Sling:
         self.input = input
         self.stdout = False
         
-    def _format_option(self, value: Union[str, Dict[str, Any], List[Any]]) -> str:
+    def _format_option(self, value: Union[SourceOptions, TargetOptions, Dict[str, Any], List[Any]]) -> str:
         """Convert option value to JSON string if needed"""
-        if isinstance(value, str):
-            return value
+        if hasattr(value, '__dict__'):
+            # Handle SourceOptions/TargetOptions objects - convert to dict first
+            value_dict = {}
+            for key, val in value.__dict__.items():
+                if val is not None:
+                    value_dict[key] = val
+            return json.dumps(value_dict)
         return json.dumps(value)
     
     def _format_list(self, value: Union[str, List[str]]) -> str:
