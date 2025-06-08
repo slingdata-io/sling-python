@@ -34,10 +34,12 @@ jobs:
       - name: Run Tests
         run: |
           # Download linux binary
+          mkdir tmp && cd tmp
           wget -q 'https://github.com/slingdata-io/sling-cli/releases/latest/download/sling_linux_amd64.tar.gz'
           tar xf sling_linux_amd64.tar.gz
-          chmod -R sling
+          chmod 755 sling
           export SLING_BINARY="$PWD/sling"
+          cd ..
 
           # Install sling package in development mode for testing
           cd sling
