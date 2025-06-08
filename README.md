@@ -126,7 +126,7 @@ Sling(
 
 ```python
 import os
-from sling import Sling
+from sling import Sling, Format
 
 # Set postgres connection
 # see https://docs.slingdata.io/connections/database-connections
