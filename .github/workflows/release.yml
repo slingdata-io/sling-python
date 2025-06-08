@@ -29,7 +29,20 @@ jobs:
 
       - name: Pip Install
         run: |
-          pip install build twine
+          pip install build twine pytest
+
+      - name: Run Tests
+        run: |
+          # Install sling package in development mode for testing
+          cd sling
+          pip install -e .
+          cd ..
+          
+          # Run the tests
+          python -m pytest sling/tests/tests.py -v
+          
+          # Clean up the development installation
+          pip uninstall -y sling
 
       - name: Release sling-linux-amd64 to PyPi
         run: |

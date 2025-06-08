@@ -1,3 +1,5 @@
+from typing import Union
+from .enum import Format, Compression
 
 class SourceOptions:
   trim_space: bool
@@ -6,8 +8,8 @@ class SourceOptions:
   flatten: bool
   fields_per_rec: int
   chunk_size: str
-  compression: str
-  format: str
+  compression: Union[Compression, str]
+  format: Union[Format, str]
   null_if: str
   datetime_format: str
   skip_blank_lines: bool
@@ -28,8 +30,8 @@ class SourceOptions:
               flatten: bool = None,
               fields_per_rec: int = None,
               chunk_size: str = None,
-              compression: str = None,
-              format: str = None,
+              compression: Union[Compression, str] = None,
+              format: Union[Format, str] = None,
               null_if: str = None,
               datetime_format: str = None,
               skip_blank_lines: bool = None,
@@ -67,14 +69,14 @@ class SourceOptions:
 
 class TargetOptions:
   header: bool
-  compression: str
+  compression: Union[Compression, str]
   concurrency: int
   batch_limit: int
   datetime_format: str
   delimiter: str
   file_max_rows: int
   file_max_bytes: int
-  format: str
+  format: Union[Format, str]
   max_decimals: int
   use_bulk: bool
   ignore_existing: bool
@@ -90,14 +92,14 @@ class TargetOptions:
 
   def __init__(self, 
               header: bool = None,
-              compression: str = None,
+              compression: Union[Compression, str] = None,
               concurrency: int = None,
               batch_limit: int = None,
               datetime_format: str = None,
               delimiter: str = None,
               file_max_rows: int = None,
               file_max_bytes: int = None,
-              format: str = None,
+              format: Union[Format, str] = None,
               max_decimals: int = None,
               use_bulk: bool = None,
               ignore_existing: bool = None,

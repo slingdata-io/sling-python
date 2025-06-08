@@ -1,6 +1,7 @@
 # Hook classes for Sling Python package
 # These classes are used for building replication configurations that get passed to the Go binary
-from typing import Iterable, List, Union, Dict
+from typing import List, Union, Dict
+from .enum import Mode
 
 # Hook Base Class and Hook Types
 class Hook:
@@ -218,7 +219,7 @@ class HookReplication(Hook):
                path: str,
                working_dir: str = None,
                range_param: str = None,  # 'range' is a reserved keyword
-               mode: str = None,
+               mode: Union[Mode, str] = None,
                streams: List[str] = None,
                env: Dict[str, any] = None,
                **kwargs) -> None:
@@ -352,3 +353,20 @@ class HookMap:
     if self.post:
       result['post'] = hooks_to_dict(self.post)
     return result
+
+# Step aliases for all hook classes
+Step = Hook
+StepQuery = HookQuery
+StepHTTP = HookHTTP
+StepCheck = HookCheck
+StepRead = HookRead
+StepWrite = HookWrite
+StepCopy = HookCopy
+StepDelete = HookDelete
+StepLog = HookLog
+StepInspect = HookInspect
+StepList = HookList
+StepReplication = HookReplication
+StepCommand = HookCommand
+StepGroup = HookGroup
+StepStore = HookStore

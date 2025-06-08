@@ -4,6 +4,7 @@ from typing import Iterable, List, Union, Dict
 from json import JSONEncoder
 from .hooks import HookMap, Hook, hooks_to_dict
 from .options import SourceOptions, TargetOptions
+from .enum import Mode, Format, Compression
 
 #################################################################
 # Logic to import the proper binary for the respective operating 
@@ -45,6 +46,8 @@ if not SLING_BIN:
 
 #################################################################
 
+
+
 is_package = lambda text: any([
     text in line.lower()
     for line in traceback.format_stack()[:-1]])
@@ -53,6 +56,12 @@ class JsonEncoder(JSONEncoder):
   def default(self, o):
     if hasattr(o, 'to_dict'):
       return o.to_dict()
+    elif isinstance(o, Mode):
+      return o.value
+    elif isinstance(o, Format):
+      return o.value
+    elif isinstance(o, Compression):
+      return o.value
     return o.__dict__
 
 
@@ -101,7 +110,7 @@ class Target:
 class ReplicationStream:
   id: str
   description: str
-  mode: str
+  mode: Union[Mode, str]
   object: str
   select: List[str]
   files: List[str]
@@ -120,7 +129,7 @@ class ReplicationStream:
           self,
           id: str = None,
           description: str = None,
-          mode: str = None,
+          mode: Union[Mode, str] = None,
           object: str = None,
           select: List[str] = [],
           files: List[str] = [],
@@ -245,7 +254,7 @@ class Replication:
       if stream_name in self.streams:
         self.streams[stream_name].disable()
 
-  def set_default_mode(self, mode: str):
+  def set_default_mode(self, mode: Union[Mode, str]):
     self.defaults.mode = mode
 
   def _prep_cmd(self):
@@ -343,6 +352,8 @@ class TaskOptions:
 
 class Task:
   """
+  @deprecated Use Replication class instead.
+  
   Task represents the main object to define a
   sling task. Call the `run` method to execute the task.
 
@@ -354,7 +365,7 @@ class Task:
   source: Source
   target: Target
   options: TaskOptions
-  mode: str
+  mode: Union[Mode, str]
   env: dict
 
   temp_file: str
@@ -363,7 +374,7 @@ class Task:
       self,
       source: Union[Source, dict]={},
       target: Union[Target, dict]={},
-      mode: str = 'full-refresh', 
+      mode: Union[Mode, str] = Mode.FULL_REFRESH, 
       options: Union[TaskOptions, dict]={},
       env: dict = {},
     ) -> None:
