@@ -66,7 +66,8 @@ from sling import Replication, ReplicationStream, Mode
 # build sling replication
 streams = {}
 for (folder, table_name) in list(folders):
-  streams[folder] = ReplicationStream(mode=Mode.FULL_REFRESH, object=table_name, primary_key='_hash_id')
+  streams[folder] = ReplicationStream(
+    mode=Mode.FULL_REFRESH, object=table_name, primary_key='_hash_id')
 
 replication = Replication(
   source='aws_s3',
@@ -89,14 +90,15 @@ For more direct control and streaming capabilities, you can use the `Sling` clas
 import os
 from sling import Sling, Mode
 
-# Set postgres & snowflake connection, see https://docs.slingdata.io/connections/database-connections
+# Set postgres & snowflake connection
+# see https://docs.slingdata.io/connections/database-connections
 os.environ["POSTGRES"] = 'postgres://...'
 os.environ["SNOWFLAKE"] = 'snowflake://...'
 
 # Database to database transfer
 Sling(
     src_conn="postgres",
-    src_stream="users",
+    src_stream="public.users",
     tgt_conn="snowflake",
     tgt_object="public.users_copy",
     mode=Mode.FULL_REFRESH
@@ -124,7 +126,8 @@ Sling(
 import os
 from sling import Sling
 
-# Set postgres connection, see https://docs.slingdata.io/connections/database-connections
+# Set postgres connection
+# see https://docs.slingdata.io/connections/database-connections
 os.environ["POSTGRES"] = 'postgres://...'
 
 # Stream Python data to CSV file
@@ -161,13 +164,14 @@ def data_generator():
 Sling(input=data_generator(), tgt_object="file:///tmp/large_dataset.csv").run()
 ```
 
-#### Output Streaming with `output_records()`
+#### Output Streaming with `stream()`
 
 ```python
 import os
 from sling import Sling
 
-# Set postgres connection, see https://docs.slingdata.io/connections/database-connections
+# Set postgres connection
+# see https://docs.slingdata.io/connections/database-connections
 os.environ["POSTGRES"] = 'postgres://...'
 
 # Stream data from database
@@ -177,7 +181,7 @@ sling = Sling(
     limit=1000
 )
 
-for record in sling.output_records():
+for record in sling.stream():
     print(f"User: {record['name']}, Age: {record['age']}")
 
 # Stream data from file
@@ -186,7 +190,7 @@ sling = Sling(
 )
 
 # Process records one by one (memory efficient)
-for record in sling.output_records():
+for record in sling.stream():
     # Process each record
     processed_data = transform_record(record)
     # Could save to another system, send to API, etc.
@@ -200,7 +204,7 @@ sling = Sling(
     limit=500
 )
 
-records = list(sling.output_records())
+records = list(sling.stream())
 print(f"Found {len(records)} high-value orders")
 ```
 
@@ -210,7 +214,8 @@ print(f"Found {len(records)} high-value orders")
 import os
 from sling import Sling
 
-# Set postgres connection, see https://docs.slingdata.io/connections/database-connections
+# Set postgres connection
+# see https://docs.slingdata.io/connections/database-connections
 os.environ["POSTGRES"] = 'postgres://...'
 
 # Python → File → Python
@@ -230,7 +235,7 @@ sling_write.run()
 sling_read = Sling(
     src_stream="file:///tmp/scores.csv"
 )
-loaded_data = list(sling_read.output_records())
+loaded_data = list(sling_read.stream())
 
 # Python → Database → Python (with transformations)
 sling_to_db = Sling(
@@ -244,7 +249,7 @@ sling_from_db = Sling(
     src_conn="postgres", 
     src_stream="select *, score * 1.1 as boosted_score from public.temp_scores",
 )
-transformed_data = list(sling_from_db.output_records())
+transformed_data = list(sling_from_db.stream())
 ```
 
 

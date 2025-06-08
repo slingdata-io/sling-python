@@ -8,6 +8,14 @@ from .options import SourceOptions, TargetOptions
 from .enum import Mode, Format, Compression
 from .bin import SLING_BIN
 
+# Try to import pyarrow, fallback to CSV if not available
+try:
+    import pyarrow as pa
+    HAS_ARROW = True
+except ImportError:
+    from .arrow import FakePA
+    pa = FakePA()
+    HAS_ARROW = False
 
 is_package = lambda text: any([
     text in line.lower()
@@ -313,7 +321,7 @@ class TaskOptions:
 
 class Task:
   """
-  @deprecated Use Replication class instead.
+  @deprecated Use `Replication` or `Sling` classes instead.
   
   Task represents the main object to define a
   sling task. Call the `run` method to execute the task.
@@ -520,14 +528,14 @@ class Sling:
         sling = Sling(input=data, tgt_conn="postgres", tgt_object="users")
         sling.run()
         
-        # Get output data as iterator (output_records method)
+        # Get output data as iterator (stream method)
         sling = Sling(src_conn="snowflake", src_stream="public.users")
-        for record in sling.output_records():
+        for record in sling.stream():
             print(record)
             
         # Stream with target object (just runs normally)
         sling = Sling(src_conn="snowflake.", src_stream="select * from users", tgt_conn="file://", tgt_object="output.csv")
-        list(sling.output_records())  # Equivalent to sling.run()
+        list(sling.stream())  # Equivalent to sling.run()
         ```
     """
     
@@ -726,6 +734,168 @@ class Sling:
         return cmd
     
     def _write_input_data_sync(self, stdin: IO, input_data: Iterable[Dict[str, Any]]):
+        """Write input data to stdin, using Arrow IPC format if available, otherwise CSV"""
+        if HAS_ARROW and self._should_use_arrow():
+            self._write_input_data_arrow(stdin, input_data)
+        else:
+            self._write_input_data_csv(stdin, input_data)
+    
+    def _should_use_arrow(self) -> bool:
+        """Determine if Arrow format should be used"""
+        # Use Arrow if available and not disabled via env var
+        return HAS_ARROW and os.environ.get('SLING_USE_ARROW', 'true').lower() != 'false'
+    
+    def _write_input_data_arrow(self, stdin: IO, input_data: Iterable[Dict[str, Any]]):
+        """Write input data to stdin in Arrow IPC format"""
+        try:
+            # Collect records into batches for efficient Arrow processing
+            batch_size = 10000
+            current_batch = []
+            schema = None
+            
+            # Determine columns to use
+            selected_columns = None
+            if self.select:
+                if isinstance(self.select, list):
+                    selected_columns = self.select
+                else:
+                    selected_columns = [col.strip() for col in self.select.split(',')]
+            
+            # Create Arrow IPC stream writer
+            writer = None
+            
+            for record in input_data:
+                if not record:
+                    continue
+                
+                # Filter columns if specified
+                if selected_columns:
+                    record = {k: v for k, v in record.items() if k in selected_columns}
+                
+                current_batch.append(record)
+                
+                # Process batch when full
+                if len(current_batch) >= batch_size:
+                    if schema is None:
+                        schema = self._infer_arrow_schema(current_batch)
+                        writer = pa.ipc.new_stream(stdin, schema)
+                    
+                    batch = self._records_to_arrow_batch(current_batch, schema)
+                    writer.write_batch(batch)
+                    current_batch = []
+            
+            # Process final batch
+            if current_batch:
+                if schema is None:
+                    schema = self._infer_arrow_schema(current_batch)
+                    writer = pa.ipc.new_stream(stdin, schema)
+                
+                batch = self._records_to_arrow_batch(current_batch, schema)
+                writer.write_batch(batch)
+            
+            # Handle empty input
+            if schema is None:
+                # Create empty schema and write empty stream
+                schema = pa.schema([])
+                writer = pa.ipc.new_stream(stdin, schema)
+            
+            if writer:
+                writer.close()
+                
+        except Exception as e:
+            if self.debug:
+                sys.stderr.write(f"Error in Arrow input stream: {e}\n")
+                sys.stderr.flush()
+            raise
+    
+    def _infer_arrow_schema(self, records: List[Dict[str, Any]]) -> pa.Schema:
+        """Infer Arrow schema from a sample of records"""
+        if not records:
+            return pa.schema([])
+        
+        # Collect all unique field names
+        field_names = set()
+        for record in records[:100]:  # Sample first 100 records for schema inference
+            field_names.update(record.keys())
+        
+        fields = []
+        for field_name in sorted(field_names):
+            # Sample values for type inference
+            sample_values = []
+            for record in records[:100]:
+                if field_name in record and record[field_name] is not None:
+                    sample_values.append(record[field_name])
+            
+            # Infer type from sample values
+            arrow_type = self._infer_arrow_type(sample_values)
+            fields.append(pa.field(field_name, arrow_type, nullable=True))
+        
+        return pa.schema(fields)
+    
+    def _infer_arrow_type(self, sample_values: List[Any]) -> pa.DataType:
+        """Infer Arrow data type from sample values"""
+        if not sample_values:
+            return pa.string()
+        
+        # Check for boolean
+        if all(isinstance(v, bool) for v in sample_values):
+            return pa.bool_()
+        
+        # Check for int64
+        if all(isinstance(v, int) and not isinstance(v, bool) for v in sample_values):
+            return pa.int64()
+        
+        # Check for float64
+        if all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in sample_values):
+            return pa.float64()
+        
+        # Check for timestamp
+        import datetime
+        if all(isinstance(v, datetime.datetime) for v in sample_values):
+            return pa.timestamp('us')
+        
+        # Check for date
+        if all(isinstance(v, datetime.date) for v in sample_values):
+            return pa.date32()
+        
+        # Default to string
+        return pa.string()
+    
+    def _records_to_arrow_batch(self, records: List[Dict[str, Any]], schema: pa.Schema) -> pa.RecordBatch:
+        """Convert a list of records to an Arrow RecordBatch"""
+        arrays = []
+        for field in schema:
+            column_data = []
+            for record in records:
+                value = record.get(field.name)
+                column_data.append(value)
+            
+            # Create Arrow array with proper type conversion
+            try:
+                if field.type == pa.bool_():
+                    array = pa.array(column_data, type=pa.bool_())
+                elif field.type == pa.int64():
+                    array = pa.array(column_data, type=pa.int64())
+                elif field.type == pa.float64():
+                    array = pa.array(column_data, type=pa.float64())
+                elif field.type == pa.timestamp('us'):
+                    array = pa.array(column_data, type=pa.timestamp('us'))
+                elif field.type == pa.date32():
+                    array = pa.array(column_data, type=pa.date32())
+                else:
+                    # Convert to string for safety
+                    string_data = [str(v) if v is not None else None for v in column_data]
+                    array = pa.array(string_data, type=pa.string())
+            except Exception:
+                # Fallback to string conversion if type conversion fails
+                string_data = [str(v) if v is not None else None for v in column_data]
+                array = pa.array(string_data, type=pa.string())
+            
+            arrays.append(array)
+        
+        return pa.record_batch(arrays, schema=schema)
+    
+    def _write_input_data_csv(self, stdin: IO, input_data: Iterable[Dict[str, Any]]):
         """Write input data to stdin in CSV format synchronously"""
         headers = None
         headers_written = False
@@ -790,6 +960,52 @@ class Sling:
             raise
     
     def _read_output_stream(self, stdout: IO) -> Iterable[Dict[str, Any]]:
+        """Read and parse output from stdout, using Arrow IPC format if available, otherwise CSV"""
+        if HAS_ARROW and self._should_use_arrow():
+            yield from self._read_output_stream_arrow(stdout)
+        else:
+            yield from self._read_output_stream_csv(stdout)
+    
+    def _read_output_stream_arrow(self, stdout: IO) -> Iterable[Dict[str, Any]]:
+        """Read and parse Arrow IPC output from stdout"""
+        try:
+            # Create Arrow IPC stream reader
+            reader = pa.ipc.open_stream(stdout)
+            
+            # Read batches and yield records
+            for batch in reader:
+                # Convert batch to list of dicts
+                table = pa.table([batch[i] for i in range(batch.num_columns)], 
+                               names=batch.schema.names)
+                
+                # Convert to Python objects with type preservation
+                for row_idx in range(table.num_rows):
+                    record = {}
+                    for col_idx, column_name in enumerate(table.column_names):
+                        column = table.column(col_idx)
+                        value = column[row_idx].as_py()  # Converts to native Python type
+                        record[column_name] = value
+                    
+                    if self.debug:
+                        sys.stderr.write(f"Debug: Arrow record: {record}\n")
+                        sys.stderr.flush()
+                    
+                    yield record
+                    
+        except Exception as e:
+            if self.debug:
+                sys.stderr.write(f"Error reading Arrow output stream: {e}\n")
+                sys.stderr.flush()
+            # Fallback to CSV parsing if Arrow fails
+            try:
+                # Reset stdout position if possible
+                if hasattr(stdout, 'seek'):
+                    stdout.seek(0)
+                yield from self._read_output_stream_csv(stdout)
+            except:
+                return
+    
+    def _read_output_stream_csv(self, stdout: IO) -> Iterable[Dict[str, Any]]:
         """Read and parse CSV output from stdout"""
         try:
             # Read the first line to get headers
@@ -838,7 +1054,7 @@ class Sling:
                 print(f"Error reading output stream: {e}")
             return
     
-    def output_records(self) -> Iterable[Dict[str, Any]]:
+    def stream(self) -> Iterable[Dict[str, Any]]:
         """
         Execute the sling command and return output data as an iterator.
         
@@ -863,6 +1079,14 @@ class Sling:
             # Prepare environment
             env = dict(os.environ)
             env['SLING_PACKAGE'] = 'python'
+            for pkg in ['dagster', 'airflow', 'temporal', 'orkes']:
+              if is_package(pkg):
+                env['SLING_PACKAGE'] = pkg
+            
+            # Set Arrow format flag if using Arrow
+            if HAS_ARROW and self._should_use_arrow():
+                env['SLING_STREAM_FORMAT'] = 'arrow'
+            
             # Allow empty files when input is empty
             if self.input is not None:
                 env['SLING_ALLOW_EMPTY'] = 'TRUE'
@@ -918,20 +1142,28 @@ class Sling:
         Execute the sling command and wait for completion.
         
         This method requires a target object to write data to.
-        If you need to get output data, use the output_records() method instead.
+        If you need to get output data, use the stream() method instead.
         
         Raises:
-            SlingError: If no target object is specified (use output_records() instead)
+            SlingError: If no target object is specified (use stream() instead)
         """
         # Check if target object is specified
         if not self.tgt_object:
-            raise SlingError("No target object specified. Use output_records() method instead of run() to get output data.")
+            raise SlingError("No target object specified. Use stream() method instead of run() to get output data.")
             
         cmd = self._build_command()
         
         # Prepare environment
         env = dict(os.environ)
         env['SLING_PACKAGE'] = 'python'
+        for pkg in ['dagster', 'airflow', 'temporal', 'orkes']:
+          if is_package(pkg):
+            env['SLING_PACKAGE'] = pkg
+        
+        # Set Arrow format flag if using Arrow
+        if HAS_ARROW and self._should_use_arrow():
+            env['SLING_STREAM_FORMAT'] = 'arrow'
+        
         # Allow empty files when input is empty
         if self.input is not None:
             env['SLING_ALLOW_EMPTY'] = 'TRUE'

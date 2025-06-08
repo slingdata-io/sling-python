@@ -264,7 +264,7 @@ class TestSlingOutputStreaming:
             debug=True
         )
         
-        records = list(sling.output_records())
+        records = list(sling.stream())
         
         assert len(records) == len(sample_data)
         assert records[0]['name'] == 'John Doe'
@@ -286,7 +286,7 @@ class TestSlingOutputStreaming:
             debug=True
         )
         
-        records = list(sling.output_records())
+        records = list(sling.stream())
         
         assert len(records) == len(sample_data)
         # JSON lines are returned as strings in the 'data' column
@@ -312,7 +312,7 @@ class TestSlingOutputStreaming:
             debug=True
         )
         
-        records = list(sling.output_records())
+        records = list(sling.stream())
         
         assert len(records) == 3  # Should be limited to 3 records
         assert records[0]['name'] == 'John Doe'
@@ -333,7 +333,7 @@ class TestSlingOutputStreaming:
             debug=True
         )
         
-        records = list(sling.output_records())
+        records = list(sling.stream())
         
         assert len(records) == len(sample_data)
         # Should only have selected columns
@@ -356,7 +356,7 @@ class TestSlingOutputStreaming:
         )
         
         records = []
-        for i, record in enumerate(sling.output_records()):
+        for i, record in enumerate(sling.stream()):
             records.append(record)
             if i >= 1:  # Break after 2 records
                 break
@@ -388,7 +388,7 @@ class TestSlingRoundTrip:
             debug=True
         )
         
-        result_data = list(sling_read.output_records())
+        result_data = list(sling_read.stream())
         
         # Verify data integrity (note: numeric values become strings in CSV)
         assert len(result_data) == len(sample_data)
@@ -415,7 +415,7 @@ class TestSlingRoundTrip:
             debug=True
         )
         
-        result_data = list(sling_read.output_records())
+        result_data = list(sling_read.stream())
         
         # Verify data integrity
         # JSON lines are returned as strings in the 'data' column
@@ -445,7 +445,7 @@ class TestSlingRoundTrip:
             debug=True
         )
         
-        result_data = list(sling_read.output_records())
+        result_data = list(sling_read.stream())
         
         # Verify transformations were applied
         assert len(result_data) == 3  # Limited to 3
@@ -477,7 +477,7 @@ class TestSlingErrorHandling:
         )
         
         with pytest.raises(SlingError):
-            list(sling.output_records())
+            list(sling.stream())
     
     def test_empty_input_data(self, temp_dir):
         """Test handling of empty input data"""
@@ -502,7 +502,7 @@ class TestSlingErrorHandling:
         )
         
         with pytest.raises(SlingError):
-            list(sling.output_records())
+            list(sling.stream())
 
 
 

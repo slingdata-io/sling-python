@@ -38,6 +38,7 @@ class Format(Enum):
   XML = "xml"
   XLSX = "xlsx"
   PARQUET = "parquet"
+  ARROW = "arrow"
   AVRO = "avro"
   SAS = "sas7bdat"
   RAW = "raw"
