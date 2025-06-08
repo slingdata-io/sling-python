@@ -30,8 +30,6 @@ class Format(Enum):
   PARQUET: Apache Parquet columnar format
   AVRO: Apache Avro binary format
   SAS: SAS7BDAT file format
-  ICEBERG: Apache Iceberg table format
-  DELTA: Delta Lake table format
   RAW: Raw/binary file format
   """
   CSV = "csv"
@@ -42,8 +40,6 @@ class Format(Enum):
   PARQUET = "parquet"
   AVRO = "avro"
   SAS = "sas7bdat"
-  ICEBERG = "iceberg"
-  DELTA = "delta"
   RAW = "raw"
 
 
