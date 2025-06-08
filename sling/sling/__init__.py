@@ -184,14 +184,14 @@ class ReplicationStream:
 
 class Replication:
   """
-  Task represents a sling replication. Call the `run` method to execute it.
+  Task represents a sling replication. Call the `run` method to execute it. See https://docs.slingdata.io/concepts/replication for details.
 
   `source` represents the source connection name.
   `target` represents the target connection name.
   `defaults` represents the default stream properties to use.
-  `hooks` represents the replication level hooks to use.
+  `hooks` represents the replication level hooks to use. See https://docs.slingdata.io/concepts/hooks for details.
   `streams` represents a dictionary of streams.
-  `env` represents the environment variable to apply.
+  `env` represents the environment variable to apply. See https://docs.slingdata.io/sling-cli/variables for Sling environment variable keys.
   `debug` represents the whether the logger should be set at DEBUG level.
   """
 
