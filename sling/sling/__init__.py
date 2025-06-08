@@ -644,8 +644,8 @@ class Sling:
             for key, val in value.__dict__.items():
                 if val is not None:
                     value_dict[key] = val
-            return json.dumps(value_dict)
-        return json.dumps(value)
+            return json.dumps(value_dict, cls=JsonEncoder)
+        return json.dumps(value, cls=JsonEncoder)
     
     def _format_list(self, value: Union[str, List[str]]) -> str:
         """Convert list to comma-separated string if needed"""
@@ -669,7 +669,15 @@ class Sling:
         if self.input is not None:
             # When input data is provided, we don't add source parameters
             # The sling binary will auto-detect stdin
-            pass
+            # Set source format to Arrow if using Arrow mode with input data
+            # BUT only if we're streaming to stdout or the target explicitly uses Arrow
+            if HAS_ARROW and self._should_use_arrow() and self._should_use_arrow_for_input():
+                if self.src_options is None:
+                    self.src_options = SourceOptions(format=Format.ARROW)
+                elif isinstance(self.src_options, dict):
+                    self.src_options['format'] = Format.ARROW
+                elif hasattr(self.src_options, 'format'):
+                    self.src_options.format = Format.ARROW
         else:
             if self.src_conn:
                 # Handle file:// URLs - use LOCAL connection
@@ -1075,6 +1083,15 @@ class Sling:
         self.stdout = True
         
         try:
+            # Set output format to Arrow if using Arrow mode
+            if HAS_ARROW and self._should_use_arrow():
+                if self.tgt_options is None:
+                    self.tgt_options = TargetOptions(format=Format.ARROW)
+                elif isinstance(self.tgt_options, dict):
+                    self.tgt_options['format'] = Format.ARROW
+                elif hasattr(self.tgt_options, 'format'):
+                    self.tgt_options.format = Format.ARROW
+            
             cmd = self._build_command()
             
             # Warn about column typing when not using Arrow (only once)
