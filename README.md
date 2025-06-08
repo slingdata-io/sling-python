@@ -124,6 +124,8 @@ Sling(
 
 > **💡 Tip:** Install `pip install sling[arrow]` for better streaming performance and improved data type handling.
 
+> **⚠️ Note:** Be careful with large numbers of `Sling` invocations using `input` or `stream()` methods when working with external systems (databases, file systems). Each call re-opens the connection since it invokes the underlying sling binary. For better performance and connection reuse, consider using the `Replication` class instead, which maintains open connections across multiple operations.
+
 ```python
 import os
 from sling import Sling, Format
