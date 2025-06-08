@@ -4,7 +4,7 @@
 
 ## Installation
 
-`pip install sling`
+`pip install sling` or `pip install sling[arrow]` for streaming.
 
 Then you should be able to run `sling --help` from command line.
 
