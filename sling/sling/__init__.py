@@ -1,51 +1,12 @@
-import os, sys, tempfile, uuid, json, platform, traceback
+import os, sys, tempfile, uuid, json, traceback, subprocess, csv
+from io import StringIO
 from subprocess import PIPE, Popen, STDOUT
-from typing import Iterable, List, Union, Dict
+from typing import Iterable, List, Union, Dict, Any, Optional, IO
 from json import JSONEncoder
 from .hooks import HookMap, Hook, hooks_to_dict
 from .options import SourceOptions, TargetOptions
 from .enum import Mode, Format, Compression
-
-#################################################################
-# Logic to import the proper binary for the respective operating 
-# systems and architecture. Since the binaries are built in Go, 
-# they need to be added to the PyPi sling package via a `MANIFEST.in` file.
-# And since there is approximately one binary per OS/ARCH,
-# it is necessary to split them out into their own PyPi package
-# to avoid exceeding the PyPi quotas. This also allows a faster 
-# install via pip and saves bandwidth.
-
-# For development
-SLING_BASE = os.path.join(os.path.dirname(__file__), '..', '..', 'sling_base')
-insert = lambda f: sys.path.insert(1, os.path.join(SLING_BASE, f))
-insert('sling-windows-amd64')
-insert('sling-linux-amd64')
-insert('sling-linux-arm64')
-insert('sling-mac-amd64')
-insert('sling-mac-arm64')
-
-# allows provision of a custom path for sling binary
-SLING_BIN = os.getenv("SLING_BINARY")
-
-if not SLING_BIN:
-  if platform.system() == 'Linux':
-    if platform.machine() == 'aarch64':
-      exec('from sling_linux_arm64 import SLING_BIN')
-    else:
-      exec('from sling_linux_amd64 import SLING_BIN')
-  elif platform.system() == 'Windows':
-    if platform.machine() == 'ARM64':
-      exec('from sling_windows_arm64 import SLING_BIN')
-    else:
-      exec('from sling_windows_amd64 import SLING_BIN')
-  elif platform.system() == 'Darwin':
-    if platform.machine() == 'arm64':
-      exec('from sling_mac_arm64 import SLING_BIN')
-    else:
-      exec('from sling_mac_amd64 import SLING_BIN')
-
-#################################################################
-
+from .bin import SLING_BIN
 
 
 is_package = lambda text: any([
@@ -443,8 +404,6 @@ class Task:
     finally:
       os.remove(self.temp_file)
 
-# conform to legacy module
-Sling = Task
 
 def _run(cmd: str, temp_file: str, return_output=False, env:dict=None, stdin=None):
   """
@@ -533,3 +492,490 @@ def _exec_cmd(cmd, stdin=None, stdout=PIPE, stderr=STDOUT, env:dict=None):
       if len(lines) > 0:
           raise Exception(f'Sling command failed:\n{lines}')
       raise Exception(f'Sling command failed')
+
+
+
+class SlingError(Exception):
+    """Custom exception for Sling-related errors"""
+    pass
+
+
+class Sling:
+    """
+    Sling class that mirrors the sling CLI functionalities.
+    
+    This class provides a Python interface to the Sling CLI with support for:
+    - All CLI parameters
+    - Streaming input from Python iterables (memory efficient, uses CSV format)
+    - Streaming output to Python iterables (memory efficient)
+    
+    Usage:
+        ```
+        # Write data to a target (run method)
+        sling = Sling(src_conn="postgres", src_stream="users", tgt_conn="file://", tgt_object="output.csv")
+        sling.run()
+        
+        # With input data to target
+        data = [{"id": 1, "name": "John"}, {"id": 2, "name": "Jane"}]
+        sling = Sling(input=data, tgt_conn="postgres", tgt_object="users")
+        sling.run()
+        
+        # Get output data as iterator (output_records method)
+        sling = Sling(src_conn="snowflake", src_stream="public.users")
+        for record in sling.output_records():
+            print(record)
+            
+        # Stream with target object (just runs normally)
+        sling = Sling(src_conn="snowflake.", src_stream="select * from users", tgt_conn="file://", tgt_object="output.csv")
+        list(sling.output_records())  # Equivalent to sling.run()
+        ```
+    """
+    
+    def __init__(
+        self,
+        # Source parameters
+        src_conn: Optional[str] = None,
+        src_stream: Optional[str] = None,
+        src_options: Optional[Union[str, Dict[str, Any]]] = None,
+        
+        # Target parameters
+        tgt_conn: Optional[str] = None,
+        tgt_object: Optional[str] = None,
+        tgt_options: Optional[Union[str, Dict[str, Any]]] = None,
+        
+        # Stream manipulation
+        select: Optional[Union[str, List[str]]] = None,
+        where: Optional[str] = None,
+        transforms: Optional[Union[str, Dict[str, Any], List[Any]]] = None,
+        columns: Optional[Union[str, Dict[str, Any]]] = None,
+        streams: Optional[Union[str, List[str]]] = None,
+        
+        # Mode and limits
+        mode: Optional[str] = None,
+        limit: Optional[int] = None,
+        offset: Optional[int] = None,
+        range: Optional[str] = None,
+        primary_key: Optional[Union[str, List[str]]] = None,
+        update_key: Optional[str] = None,
+        
+        # Environment and config
+        env: Optional[Union[str, Dict[str, Any]]] = None,
+        replication: Optional[str] = None,
+        pipeline: Optional[str] = None,
+        config: Optional[str] = None,
+        
+        # Logging
+        debug: bool = False,
+        trace: bool = False,
+        
+        # Python-specific options
+        input: Optional[Iterable[Dict[str, Any]]] = None,
+    ):
+        """
+        Initialize Sling with CLI parameters.
+        
+        Args:
+            src_conn: Source database/storage connection
+            src_stream: Source table, file path, or SQL query
+            src_options: Source configuration options (JSON/YAML string or dict)
+            tgt_conn: Target database connection
+            tgt_object: Target table or file path
+            tgt_options: Target configuration options (JSON/YAML string or dict)
+            select: Columns to select (comma-separated string or list)
+            where: WHERE clause for filtering
+            transforms: Transform configuration (JSON/YAML string, dict, or list)
+            columns: Column type casting (JSON/YAML string or dict)
+            streams: Specific streams for replication (comma-separated string or list)
+            mode: Load mode (full-refresh, incremental, etc.)
+            limit: Maximum number of rows
+            offset: Number of rows to offset
+            range: Range for backfill mode
+            primary_key: Primary key for incremental (comma-separated string or list)
+            update_key: Update key for incremental
+            env: Environment variables (JSON/YAML string or dict)
+            replication: Replication config file path
+            pipeline: Pipeline config file path
+            config: Task config string or file (deprecated)
+            debug: Enable debug logging
+            trace: Enable trace logging
+            input: Python iterable to use as input data
+        """
+        # Store all parameters
+        self.src_conn = src_conn
+        self.src_stream = src_stream
+        self.src_options = src_options
+        self.tgt_conn = tgt_conn
+        self.tgt_object = tgt_object
+        self.tgt_options = tgt_options
+        self.select = select
+        self.where = where
+        self.transforms = transforms
+        self.columns = columns
+        self.streams = streams
+        self.mode = mode
+        self.limit = limit
+        self.offset = offset
+        self.range = range
+        self.primary_key = primary_key
+        self.update_key = update_key
+        self.env = env
+        self.replication = replication
+        self.pipeline = pipeline
+        self.config = config
+        self.debug = debug
+        self.trace = trace
+        self.input = input
+        self.stdout = False
+        
+    def _format_option(self, value: Union[str, Dict[str, Any], List[Any]]) -> str:
+        """Convert option value to JSON string if needed"""
+        if isinstance(value, str):
+            return value
+        return json.dumps(value)
+    
+    def _format_list(self, value: Union[str, List[str]]) -> str:
+        """Convert list to comma-separated string if needed"""
+        if isinstance(value, list):
+            return ",".join(value)
+        return value
+    
+    def _build_command(self) -> List[str]:
+        """Build the sling command arguments"""
+        cmd = [SLING_BIN, "run"]
+        
+        # Add parameters
+        if self.replication:
+            cmd.extend(["-r", self.replication])
+        if self.pipeline:
+            cmd.extend(["-p", self.pipeline])
+        if self.config:
+            cmd.extend(["-c", self.config])
+        
+        # Handle source configuration
+        if self.input is not None:
+            # When input data is provided, we don't add source parameters
+            # The sling binary will auto-detect stdin
+            pass
+        else:
+            if self.src_conn:
+                # Handle file:// URLs - use LOCAL connection
+                if self.src_conn.startswith("file://"):
+                    cmd.extend(["--src-conn", "LOCAL"])
+                    # If no src_stream specified, use the file path
+                    if not self.src_stream:
+                        cmd.extend(["--src-stream", self.src_conn])
+                    else:
+                        cmd.extend(["--src-stream", self.src_stream])
+                else:
+                    cmd.extend(["--src-conn", self.src_conn])
+                    if self.src_stream:
+                        cmd.extend(["--src-stream", self.src_stream])
+            elif self.src_stream:
+                # Just src_stream without src_conn
+                cmd.extend(["--src-stream", self.src_stream])
+        if self.src_options:
+            cmd.extend(["--src-options", self._format_option(self.src_options)])
+        if self.tgt_conn:
+            # Handle file:// URLs - use LOCAL connection and file:// in tgt_object
+            if self.tgt_conn.startswith("file://"):
+                cmd.extend(["--tgt-conn", "LOCAL"])
+                if not self.tgt_object:
+                    cmd.extend(["--tgt-object", self.tgt_conn])
+            else:
+                cmd.extend(["--tgt-conn", self.tgt_conn])
+        if self.tgt_object:
+            cmd.extend(["--tgt-object", self.tgt_object])
+        if self.tgt_options:
+            cmd.extend(["--tgt-options", self._format_option(self.tgt_options)])
+        if self.select:
+            cmd.extend(["-s", self._format_list(self.select)])
+        if self.where:
+            cmd.extend(["--where", self.where])
+        if self.transforms:
+            cmd.extend(["--transforms", self._format_option(self.transforms)])
+        if self.columns:
+            cmd.extend(["--columns", self._format_option(self.columns)])
+        if self.streams:
+            cmd.extend(["--streams", self._format_list(self.streams)])
+        if self.stdout:
+            cmd.append("--stdout")
+        if self.env:
+            cmd.extend(["--env", self._format_option(self.env)])
+        if self.mode:
+            cmd.extend(["-m", self.mode])
+        if self.limit is not None:
+            cmd.extend(["-l", str(self.limit)])
+        if self.offset is not None:
+            cmd.extend(["-o", str(self.offset)])
+        if self.range:
+            cmd.extend(["--range", self.range])
+        if self.primary_key:
+            cmd.extend(["--primary-key", self._format_list(self.primary_key)])
+        if self.update_key:
+            cmd.extend(["--update-key", self.update_key])
+        if self.debug:
+            cmd.append("-d")
+        if self.trace:
+            cmd.append("--trace")
+            
+        return cmd
+    
+    def _write_input_data_sync(self, stdin: IO, input_data: Iterable[Dict[str, Any]]):
+        """Write input data to stdin in CSV format synchronously"""
+        headers = None
+        headers_written = False
+        record_count = 0
+        
+        # Determine columns to use
+        selected_columns = None
+        if self.select:
+            if isinstance(self.select, list):
+                selected_columns = self.select
+            else:
+                # Parse comma-separated string
+                selected_columns = [col.strip() for col in self.select.split(',')]
+        
+        try:
+            for record in input_data:
+                record_count += 1
+                if not record:  # Skip empty records but count them
+                    continue
+                    
+                # Initialize headers from first record
+                if not headers_written:
+                    if selected_columns:
+                        # Use only selected columns that exist in the record
+                        headers = [col for col in selected_columns if col in record]
+                    else:
+                        headers = list(record.keys())
+                    
+                    # Write CSV header
+                    csv_buffer = StringIO()
+                    csv_writer = csv.writer(csv_buffer)
+                    csv_writer.writerow(headers)
+                    header_line = csv_buffer.getvalue()
+                    if self.debug:
+                        sys.stderr.write(f"Debug: Writing headers: {header_line.strip()}\n")
+                        sys.stderr.flush()
+                    stdin.write(header_line.encode('utf-8'))
+                    stdin.flush()
+                    headers_written = True
+                
+                if headers:
+                    # Write the record as CSV
+                    csv_buffer = StringIO()
+                    csv_writer = csv.writer(csv_buffer)
+                    # Ensure record has all fields, fill missing with empty string
+                    row = [str(record.get(h, '')) for h in headers]
+                    csv_writer.writerow(row)
+                    csv_line = csv_buffer.getvalue()
+                    if self.debug:
+                        sys.stderr.write(f"Debug: Writing row: {csv_line.strip()}\n")
+                        sys.stderr.flush()
+                    stdin.write(csv_line.encode('utf-8'))
+                    stdin.flush()
+            
+            # Handle empty input - write an empty CSV with no headers
+            if record_count == 0:
+                stdin.write(b'')  # Empty input
+                        
+        except Exception as e:
+            if self.debug:
+                print(f"Error in input stream: {e}")
+            raise
+    
+    def _read_output_stream(self, stdout: IO) -> Iterable[Dict[str, Any]]:
+        """Read and parse CSV output from stdout"""
+        try:
+            # Read the first line to get headers
+            first_line = stdout.readline()
+            if not first_line:
+                return
+                
+            first_line = first_line.decode('utf-8').strip()
+            if not first_line:
+                return
+                
+            if self.debug:
+                print(f"Debug: First line (headers): '{first_line}'")
+                
+            # Parse headers
+            headers = list(csv.reader([first_line]))[0]
+            
+            if self.debug:
+                print(f"Debug: Parsed headers: {headers}")
+            
+            # Read and parse remaining lines one by one
+            for line in stdout:
+                line_str = line.decode('utf-8').strip()
+                if line_str:
+                    try:
+                        if self.debug:
+                            print(f"Debug: Processing line: '{line_str}'")
+                        values = list(csv.reader([line_str]))[0]
+                        # Pad values if fewer than headers
+                        while len(values) < len(headers):
+                            values.append('')
+                        # Truncate values if more than headers
+                        values = values[:len(headers)]
+                        # Create record dict
+                        record = dict(zip(headers, values))
+                        if self.debug:
+                            print(f"Debug: Created record: {record}")
+                        yield record
+                    except Exception as e:
+                        if self.debug:
+                            print(f"Error parsing CSV line '{line_str}': {e}")
+                        # Skip malformed lines
+                        continue
+        except Exception as e:
+            if self.debug:
+                print(f"Error reading output stream: {e}")
+            return
+    
+    def output_records(self) -> Iterable[Dict[str, Any]]:
+        """
+        Execute the sling command and return output data as an iterator.
+        
+        If a target object is specified, this will execute normally and return an empty iterator.
+        If no target object is specified, this will stream the output data.
+        
+        Returns:
+            An iterator of records from the output stream
+        """
+        # If target object is specified, just run normally and return empty iterator
+        if self.tgt_object:
+            self.run()
+            return iter([])  # Return empty iterator
+        
+        # Enable stdout for streaming output
+        original_stdout = self.stdout
+        self.stdout = True
+        
+        try:
+            cmd = self._build_command()
+            
+            # Prepare environment
+            env = dict(os.environ)
+            env['SLING_PACKAGE'] = 'python'
+            # Allow empty files when input is empty
+            if self.input is not None:
+                env['SLING_ALLOW_EMPTY'] = 'TRUE'
+            
+            # Setup stdin/stdout for streaming
+            stdin = subprocess.PIPE if self.input is not None else subprocess.DEVNULL
+            stdout = subprocess.PIPE
+            
+            try:
+                if self.debug:
+                    sys.stderr.write(f"Debug: Running streaming command: {' '.join(cmd)}\n")
+                    sys.stderr.flush()
+                    
+                # Start process
+                process = subprocess.Popen(
+                    cmd,
+                    stdin=stdin,
+                    stdout=stdout,
+                    stderr=subprocess.PIPE,  # Capture stderr for error messages
+                    env=env
+                )
+                
+                # Handle input streaming
+                if self.input is not None:
+                    if self.debug:
+                        sys.stderr.write("Debug: Starting input streaming\n")
+                        sys.stderr.flush()
+                    # Write input data directly in the main thread
+                    self._write_input_data_sync(process.stdin, self.input)
+                
+                # Handle output streaming
+                try:
+                    yield from self._read_output_stream(process.stdout)
+                finally:
+                    # Wait for process to complete
+                    process.wait()
+                    
+                    if process.returncode != 0:
+                        # Read stderr for error message
+                        stderr_output = process.stderr.read().decode('utf-8') if process.stderr else ""
+                        raise SlingError(f"Sling command failed with return code: {process.returncode}\n{stderr_output}")
+                        
+            except Exception as e:
+                if isinstance(e, SlingError):
+                    raise
+                raise SlingError(f"Error executing sling streaming command: {str(e)}")
+        finally:
+            # Restore original stdout setting
+            self.stdout = original_stdout
+
+    def run(self) -> None:
+        """
+        Execute the sling command and wait for completion.
+        
+        This method requires a target object to write data to.
+        If you need to get output data, use the output_records() method instead.
+        
+        Raises:
+            SlingError: If no target object is specified (use output_records() instead)
+        """
+        # Check if target object is specified
+        if not self.tgt_object:
+            raise SlingError("No target object specified. Use output_records() method instead of run() to get output data.")
+            
+        cmd = self._build_command()
+        
+        # Prepare environment
+        env = dict(os.environ)
+        env['SLING_PACKAGE'] = 'python'
+        # Allow empty files when input is empty
+        if self.input is not None:
+            env['SLING_ALLOW_EMPTY'] = 'TRUE'
+        
+        # Setup stdin/stdout
+        stdin = subprocess.PIPE if self.input is not None else subprocess.DEVNULL
+        
+        try:
+            if self.debug:
+                sys.stderr.write(f"Debug: Running command: {' '.join(cmd)}\n")
+                sys.stderr.flush()
+                
+            # Start process
+            process = subprocess.Popen(
+                cmd,
+                stdin=stdin,
+                stdout=subprocess.PIPE,  # Capture stdout for potential output
+                stderr=subprocess.PIPE,  # Capture stderr for error messages
+                env=env
+            )
+            
+            # Handle input streaming if provided
+            if self.input is not None:
+                if self.debug:
+                    sys.stderr.write("Debug: Starting input streaming\n")
+                    sys.stderr.flush()
+                # Write input data directly in the main thread
+                self._write_input_data_sync(process.stdin, self.input)
+            
+            # Wait for process to complete
+            stdout_output, stderr_output = process.communicate()
+            
+            # Always decode stderr for debugging
+            stderr_text = stderr_output.decode('utf-8') if stderr_output else ""
+            
+            if self.debug and stderr_text:
+                sys.stderr.write(f"Debug: Sling stderr output:\n{stderr_text}")
+                sys.stderr.flush()
+            
+            if process.returncode != 0:
+                raise SlingError(f"Sling command failed with return code: {process.returncode}\n{stderr_text}")
+            
+            # Print stdout if debug mode or if stdout was requested
+            if stdout_output and (self.debug or self.stdout):
+                print(stdout_output.decode('utf-8'), end='')
+                    
+        except Exception as e:
+            if isinstance(e, SlingError):
+                raise
+            raise SlingError(f"Error executing sling command: {str(e)}")
+
+
