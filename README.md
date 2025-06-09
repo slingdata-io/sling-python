@@ -124,6 +124,8 @@ Sling(
 
 > **💡 Tip:** Install `pip install sling[arrow]` for better streaming performance and improved data type handling.
 
+> **📊 DataFrame Support:** The `input` parameter accepts lists of dictionaries, pandas DataFrames, or polars DataFrames. DataFrame support preserves data types when using Arrow format.
+
 > **⚠️ Note:** Be careful with large numbers of `Sling` invocations using `input` or `stream()` methods when working with external systems (databases, file systems). Each call re-opens the connection since it invokes the underlying sling binary. For better performance and connection reuse, consider using the `Replication` class instead, which maintains open connections across multiple operations.
 
 ```python
@@ -166,6 +168,44 @@ def data_generator():
         yield {"id": i, "value": f"item_{i}", "timestamp": "2023-01-01"}
 
 Sling(input=data_generator(), tgt_object="file:///tmp/large_dataset.csv").run()
+
+# Stream pandas DataFrame to database
+import pandas as pd
+
+df = pd.DataFrame({
+    "id": [1, 2, 3, 4],
+    "name": ["Alice", "Bob", "Charlie", "Diana"],
+    "age": [25, 30, 35, 28],
+    "salary": [50000, 60000, 70000, 55000]
+})
+
+Sling(
+    input=df,
+    tgt_conn="postgres",
+    tgt_object="public.employees"
+).run()
+
+# Stream polars DataFrame to CSV file
+import polars as pl
+
+df = pl.DataFrame({
+    "product_id": [101, 102, 103],
+    "product_name": ["Laptop", "Mouse", "Keyboard"],
+    "price": [999.99, 25.50, 75.00],
+    "in_stock": [True, False, True]
+})
+
+Sling(
+    input=df,
+    tgt_object="file:///tmp/products.csv"
+).run()
+
+# DataFrame with column selection
+Sling(
+    input=df,
+    select=["product_name", "price"],  # Only export specific columns
+    tgt_object="file:///tmp/product_prices.csv"
+).run()
 ```
 
 #### Output Streaming with `stream()`
@@ -254,6 +294,38 @@ sling_from_db = Sling(
     src_stream="select *, score * 1.1 as boosted_score from public.temp_scores",
 )
 transformed_data = list(sling_from_db.stream())
+
+# DataFrame → Database → DataFrame (with pandas/polars)
+import pandas as pd
+
+# Start with pandas DataFrame
+df = pd.DataFrame({
+    "user_id": [1, 2, 3],
+    "purchase_amount": [100.50, 250.75, 75.25],
+    "category": ["electronics", "clothing", "books"]
+})
+
+# Write DataFrame to database
+Sling(
+    input=df,
+    tgt_conn="postgres",
+    tgt_object="public.purchases"
+).run()
+
+# Read back with SQL transformations as pandas DataFrame
+sling_query = Sling(
+    src_conn="postgres",
+    src_stream="""
+        SELECT category, 
+               COUNT(*) as purchase_count,
+               AVG(purchase_amount) as avg_amount
+        FROM public.purchases 
+        GROUP BY category
+    """
+)
+summary_data = list(sling_query.stream())
+summary_df = pd.DataFrame(summary_data)
+print(summary_df)
 ```
 
 

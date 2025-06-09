@@ -17,6 +17,21 @@ except ImportError:
     pa = FakePA()
     HAS_ARROW = False
 
+# Try to import pandas and polars, they're optional
+try:
+    import pandas as pd
+    HAS_PANDAS = True
+except ImportError:
+    pd = None
+    HAS_PANDAS = False
+
+try:
+    import polars as pl
+    HAS_POLARS = True
+except ImportError:
+    pl = None
+    HAS_POLARS = False
+
 is_package = lambda text: any([
     text in line.lower()
     for line in traceback.format_stack()[:-1]])
@@ -523,10 +538,22 @@ class Sling:
         sling = Sling(src_conn="postgres", src_stream="users", tgt_conn="file://", tgt_object="output.csv")
         sling.run()
         
-        # With input data to target
+        # With input data to target (supports lists of dicts, pandas DataFrames, or polars DataFrames)
         data = [{"id": 1, "name": "John"}, {"id": 2, "name": "Jane"}]
         sling = Sling(input=data, tgt_conn="postgres", tgt_object="users")
         sling.run()
+        
+        # With pandas DataFrame
+        # import pandas as pd
+        # df = pd.DataFrame({"id": [1, 2], "name": ["John", "Jane"]})
+        # sling = Sling(input=df, tgt_conn="postgres", tgt_object="users")
+        # sling.run()
+        
+        # With polars DataFrame
+        # import polars as pl
+        # df = pl.DataFrame({"id": [1, 2], "name": ["John", "Jane"]})
+        # sling = Sling(input=df, tgt_conn="postgres", tgt_object="users")
+        # sling.run()
         
         # Get output data as iterator (stream method)
         sling = Sling(src_conn="snowflake", src_stream="public.users")
@@ -577,7 +604,7 @@ class Sling:
         trace: bool = False,
         
         # Python-specific options
-        input: Optional[Iterable[Dict[str, Any]]] = None,
+        input: Optional[Any] = None,
     ):
         """
         Initialize Sling with CLI parameters.
@@ -606,7 +633,7 @@ class Sling:
             config: Task config string or file (deprecated)
             debug: Enable debug logging
             trace: Enable trace logging
-            input: Python iterable to use as input data
+            input: Input data - can be a Python iterable (list of dicts), pandas DataFrame, or polars DataFrame
         """
         # Store all parameters
         self.src_conn = src_conn
@@ -741,7 +768,7 @@ class Sling:
             
         return cmd
     
-    def _write_input_data_sync(self, stdin: IO, input_data: Iterable[Dict[str, Any]]):
+    def _write_input_data_sync(self, stdin: IO, input_data: Any):
         """Write input data to stdin, using Arrow IPC format if available, otherwise CSV"""
         if HAS_ARROW and self._should_use_arrow() and self._should_use_arrow_for_input():
             self._write_input_data_arrow(stdin, input_data)
@@ -772,62 +799,106 @@ class Sling:
         # For file targets, don't use Arrow for input unless explicitly requested
         return False
     
-    def _write_input_data_arrow(self, stdin: IO, input_data: Iterable[Dict[str, Any]]):
-        """Write input data to stdin in Arrow IPC format"""
-        try:
+    def _convert_to_arrow_table(self, input_data: Any) -> pa.Table:
+        """Convert input data to Arrow Table"""
+        # Check for pandas DataFrame first
+        if HAS_PANDAS and pd is not None and isinstance(input_data, pd.DataFrame):
+            return pa.Table.from_pandas(input_data, preserve_index=False)
+        
+        # Check for polars DataFrame
+        if HAS_POLARS and pl is not None and isinstance(input_data, pl.DataFrame):
+            return input_data.to_arrow()
+        
+        # Fallback: check by duck typing for polars
+        if HAS_POLARS and hasattr(input_data, 'to_arrow') and callable(getattr(input_data, 'to_arrow')):
+            # This looks like a polars DataFrame
+            return input_data.to_arrow()
+        
+        # Fallback: check by duck typing for pandas
+        if HAS_PANDAS and hasattr(input_data, 'index') and hasattr(input_data, 'columns') and hasattr(input_data, 'to_dict'):
+            # This looks like a pandas DataFrame
+            return pa.Table.from_pandas(input_data, preserve_index=False)
+        
+        # Handle iterables (including lists of dicts)
+        if hasattr(input_data, '__iter__'):
+            # Convert to list of records first to ensure we can iterate multiple times
+            records = list(input_data)
+            if not records:
+                # Empty input - return empty table
+                return pa.table([])
+            
             # Collect records into batches for efficient Arrow processing
             batch_size = 10000
-            current_batch = []
+            all_batches = []
             schema = None
             
-            # Determine columns to use
-            selected_columns = None
-            if self.select:
-                if isinstance(self.select, list):
-                    selected_columns = self.select
-                else:
-                    selected_columns = [col.strip() for col in self.select.split(',')]
-            
-            # Create Arrow IPC stream writer
-            writer = None
-            
-            for record in input_data:
-                if not record:
-                    continue
+            for i in range(0, len(records), batch_size):
+                batch_records = records[i:i + batch_size]
                 
-                # Filter columns if specified
-                if selected_columns:
-                    record = {k: v for k, v in record.items() if k in selected_columns}
-                
-                current_batch.append(record)
-                
-                # Process batch when full
-                if len(current_batch) >= batch_size:
-                    if schema is None:
-                        schema = self._infer_arrow_schema(current_batch)
-                        writer = pa.ipc.new_stream(stdin, schema)
-                    
-                    batch = self._records_to_arrow_batch(current_batch, schema)
-                    writer.write_batch(batch)
-                    current_batch = []
-            
-            # Process final batch
-            if current_batch:
                 if schema is None:
-                    schema = self._infer_arrow_schema(current_batch)
-                    writer = pa.ipc.new_stream(stdin, schema)
+                    schema = self._infer_arrow_schema(batch_records)
                 
-                batch = self._records_to_arrow_batch(current_batch, schema)
+                batch = self._records_to_arrow_batch(batch_records, schema)
+                all_batches.append(batch)
+            
+            if not all_batches:
+                # No data - return empty table
+                return pa.table([])
+            
+            # Combine all batches into a table
+            return pa.Table.from_batches(all_batches, schema=schema)
+        
+        raise ValueError(f"Unsupported input data type: {type(input_data)}")
+    
+    def _convert_to_record_iterator(self, input_data: Any) -> Iterable[Dict[str, Any]]:
+        """Convert input data to an iterator of dictionaries"""
+        # Check for pandas DataFrame first
+        if HAS_PANDAS and pd is not None and isinstance(input_data, pd.DataFrame):
+            return input_data.to_dict('records')
+        
+        # Check for polars DataFrame
+        if HAS_POLARS and pl is not None and isinstance(input_data, pl.DataFrame):
+            return input_data.to_dicts()
+        
+        # Fallback: check by duck typing for polars
+        if HAS_POLARS and hasattr(input_data, 'to_dicts') and callable(getattr(input_data, 'to_dicts')):
+            # This looks like a polars DataFrame
+            return input_data.to_dicts()
+        
+        # Fallback: check by duck typing for pandas
+        if HAS_PANDAS and hasattr(input_data, 'index') and hasattr(input_data, 'columns') and hasattr(input_data, 'to_dict'):
+            # This looks like a pandas DataFrame
+            return input_data.to_dict('records')
+        
+        # Handle iterables (including lists of dicts)
+        if hasattr(input_data, '__iter__'):
+            return input_data
+        
+        raise ValueError(f"Unsupported input data type: {type(input_data)}")
+    
+    def _write_input_data_arrow(self, stdin: IO, input_data: Any):
+        """Write input data to stdin in Arrow IPC format"""
+        try:
+            # Handle different input data types
+            arrow_table = self._convert_to_arrow_table(input_data)
+            
+            # Apply column selection if specified
+            if self.select:
+                selected_columns = self.select if isinstance(self.select, list) else [col.strip() for col in self.select.split(',')]
+                # Filter to only columns that exist in the table
+                available_columns = [col for col in selected_columns if col in arrow_table.column_names]
+                if available_columns:
+                    arrow_table = arrow_table.select(available_columns)
+            
+            # Write Arrow table as IPC stream
+            writer = pa.ipc.new_stream(stdin, arrow_table.schema)
+            
+            # Write table in batches for memory efficiency
+            batch_size = 10000
+            for batch in arrow_table.to_batches(max_chunksize=batch_size):
                 writer.write_batch(batch)
             
-            # Handle empty input
-            if schema is None:
-                # Create empty schema and write empty stream
-                schema = pa.schema([])
-                writer = pa.ipc.new_stream(stdin, schema)
-            
-            if writer:
-                writer.close()
+            writer.close()
                 
         except Exception as e:
             if self.debug:
@@ -922,8 +993,11 @@ class Sling:
         
         return pa.record_batch(arrays, schema=schema)
     
-    def _write_input_data_csv(self, stdin: IO, input_data: Iterable[Dict[str, Any]]):
+    def _write_input_data_csv(self, stdin: IO, input_data: Any):
         """Write input data to stdin in CSV format synchronously"""
+        # Convert input data to iterator of dictionaries
+        record_iterator = self._convert_to_record_iterator(input_data)
+        
         headers = None
         headers_written = False
         record_count = 0
@@ -938,7 +1012,7 @@ class Sling:
                 selected_columns = [col.strip() for col in self.select.split(',')]
         
         try:
-            for record in input_data:
+            for record in record_iterator:
                 record_count += 1
                 if not record:  # Skip empty records but count them
                     continue
