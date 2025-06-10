@@ -9,14 +9,47 @@ class FakeArrowType:
     def __getattr__(self, name):
         return FakeArrowType()
 
+class FakeRecordBatchStreamReader:
+    def __init__(self, *args, **kwargs):
+        self._schema = FakeArrowType()
+        self._closed = False
+    
+    def __iter__(self):
+        return self
+    
+    def __next__(self):
+        # For fake implementation, just raise StopIteration to end iteration
+        raise StopIteration
+    
+    def read_next_batch(self):
+        return FakeArrowType()
+    
+    def read_all(self):
+        return FakeArrowType()
+    
+    @property
+    def schema(self):
+        return self._schema
+    
+    def close(self):
+        self._closed = True
+    
+    def __enter__(self):
+        return self
+    
+    def __exit__(self, *args):
+        self.close()
+
 class FakeIPC:
+    RecordBatchStreamReader = FakeRecordBatchStreamReader
+    
     @staticmethod
     def new_stream(*args, **kwargs):
         return FakeArrowType()
     
     @staticmethod
     def open_stream(*args, **kwargs):
-        return FakeArrowType()
+        return FakeRecordBatchStreamReader()
 
 class FakePA:
     Schema = FakeArrowType

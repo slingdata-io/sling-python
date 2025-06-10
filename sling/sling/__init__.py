@@ -1,4 +1,4 @@
-import os, sys, tempfile, uuid, json, traceback, subprocess, csv, warnings, io
+import os, sys, tempfile, uuid, json, traceback, subprocess, csv, warnings, io, datetime
 from subprocess import PIPE, Popen, STDOUT
 from typing import Iterable, List, Union, Dict, Any, Optional, IO
 from json import JSONEncoder
@@ -46,6 +46,10 @@ class JsonEncoder(JSONEncoder):
       return o.value
     elif isinstance(o, Compression):
       return o.value
+    elif isinstance(o, datetime.datetime):
+      return str(o)
+    elif isinstance(o, datetime.date):
+      return str(o)
     return o.__dict__
 
 
@@ -1063,11 +1067,11 @@ class Sling:
     def _read_output_stream(self, stdout: IO) -> Iterable[Dict[str, Any]]:
         """Read and parse output from stdout, using Arrow IPC format if available, otherwise CSV"""
         if HAS_ARROW and self._should_use_arrow():
-            yield from self._read_output_stream_arrow(stdout)
+            yield from self._read_output_stream_arrow_to_dicts(stdout)
         else:
             yield from self._read_output_stream_csv(stdout)
     
-    def _read_output_stream_arrow(self, stdout: IO) -> Iterable[Dict[str, Any]]:
+    def _read_output_stream_arrow(self, stdout: IO) -> pa.ipc.RecordBatchStreamReader:
         """Read and parse Arrow IPC output from stdout"""
         try:
             # Arrow IPC streams from sling include the ARROW1 magic bytes at the start
@@ -1091,6 +1095,28 @@ class Sling:
             
             # Create Arrow IPC stream reader
             reader = pa.ipc.open_stream(stdout)
+            
+            return reader
+                    
+        except pa.lib.ArrowInvalid as e:
+            # Arrow format error - likely not Arrow data
+            if self.debug:
+                sys.stderr.write(f"Error reading Arrow output stream: {e}\n")
+                sys.stderr.flush()
+            # Don't fallback to CSV - this indicates a format mismatch
+            raise SlingError(f"Failed to read Arrow output stream: {e}")
+        except Exception as e:
+            if self.debug:
+                sys.stderr.write(f"Error reading Arrow output stream: {e}\n")
+                sys.stderr.flush()
+            raise SlingError(f"Failed to read output stream: {e}")
+    
+    def _read_output_stream_arrow_to_dicts(self, stdout: IO) -> Iterable[Dict[str, Any]]:
+        """Read and parse Arrow IPC output from stdout"""
+        try:
+            
+            # Create Arrow IPC stream reader
+            reader = self._read_output_stream_arrow(stdout)
             
             # Read batches and yield records
             for batch in reader:
@@ -1174,20 +1200,8 @@ class Sling:
                 print(f"Error reading output stream: {e}")
             return
     
-    def stream(self) -> Iterable[Dict[str, Any]]:
-        """
-        Execute the sling command and return output data as an iterator.
-        
-        If a target object is specified, this will execute normally and return an empty iterator.
-        If no target object is specified, this will stream the output data.
-        
-        Returns:
-            An iterator of records from the output stream
-        """
-        # If target object is specified, just run normally and return empty iterator
-        if self.tgt_object:
-            self.run()
-            return iter([])  # Return empty iterator
+    def _make_stream_process(self) -> subprocess.Popen[bytes]:
+        """Execute the sling command and return process."""
         
         # Enable stdout for streaming output
         original_stdout = self.stdout
@@ -1250,25 +1264,7 @@ class Sling:
                     env=env
                 )
                 
-                # Handle input streaming
-                if self.input is not None:
-                    if self.debug:
-                        sys.stderr.write("Debug: Starting input streaming\n")
-                        sys.stderr.flush()
-                    # Write input data directly in the main thread
-                    self._write_input_data_sync(process.stdin, self.input)
-                
-                # Handle output streaming
-                try:
-                    yield from self._read_output_stream(process.stdout)
-                finally:
-                    # Wait for process to complete
-                    process.wait()
-                    
-                    if process.returncode != 0:
-                        # Read stderr for error message
-                        stderr_output = process.stderr.read().decode('utf-8') if process.stderr else ""
-                        raise SlingError(f"Sling command failed with return code: {process.returncode}\n{stderr_output}")
+                return process
                         
             except Exception as e:
                 if isinstance(e, SlingError):
@@ -1277,6 +1273,124 @@ class Sling:
         finally:
             # Restore original stdout setting
             self.stdout = original_stdout
+    
+    def stream(self) -> Iterable[Dict[str, Any]]:
+        """
+        Execute the sling command and return output data as an iterator.
+        
+        If a target object is specified, this will execute normally and return an empty iterator.
+        If no target object is specified, this will stream the output data.
+        
+        Returns:
+            An iterator of records from the output stream
+        """
+        # If target object is specified, just run normally and return empty iterator
+        if self.tgt_object:
+            self.run()
+            return iter([])  # Return empty iterator
+
+        # Check if target object is specified
+        if self.input:
+            raise SlingError("pointless to pass input and stream it back?")
+        
+        # Enable stdout for streaming output
+        original_stdout = self.stdout
+        self.stdout = True
+        
+        try:
+            # Start process
+            process = self._make_stream_process()
+            
+            # Handle input streaming
+            if self.input is not None:
+                if self.debug:
+                    sys.stderr.write("Debug: Starting input streaming\n")
+                    sys.stderr.flush()
+                # Write input data directly in the main thread
+                self._write_input_data_sync(process.stdin, self.input)
+            
+            # Handle output streaming
+            try:
+                yield from self._read_output_stream(process.stdout)
+            finally:
+                # Wait for process to complete
+                process.wait()
+
+                # Restore original stdout setting
+                self.stdout = original_stdout
+                
+                if process.returncode != 0:
+                    # Read stderr for error message
+                    stderr_output = process.stderr.read().decode('utf-8') if process.stderr else ""
+                    raise SlingError(f"Sling command failed with return code: {process.returncode}\n{stderr_output}")
+                    
+        except Exception as e:
+            if isinstance(e, SlingError):
+                raise
+            raise SlingError(f"Error executing sling streaming command: {str(e)}")
+
+    def stream_arrow(self) -> pa.ipc.RecordBatchStreamReader:
+        """
+        Execute the sling command and return output data as an Arrow RecordBatchStreamReader.
+        
+        This method requires PyArrow to be installed and forces Arrow format for optimal performance.
+        If a target object is specified, this will raise an error.
+        
+        Returns:
+            A PyArrow RecordBatchStreamReader for the output stream
+            
+        Raises:
+            SlingError: If PyArrow is not available or if target object is specified
+        """
+        # Check if Arrow is available
+        if not HAS_ARROW:
+            raise SlingError("PyArrow is not available. Install with 'pip install sling[arrow]' to use stream_arrow().")
+        
+        # Check if target object is specified
+        if self.tgt_object:
+            raise SlingError("stream_arrow() cannot be used with a target object. Use run() method instead.")
+        
+        # Check if target object is specified
+        if self.input:
+            raise SlingError("pointless to pass input and stream it back?")
+        
+        # Enable stdout for streaming output
+        original_stdout = self.stdout
+        self.stdout = True
+        
+        try:
+            # Start process
+            process = self._make_stream_process()
+            
+            # Handle input streaming
+            if self.input is not None:
+                if self.debug:
+                    sys.stderr.write("Debug: Starting input streaming\n")
+                    sys.stderr.flush()
+                # Write input data directly in the main thread
+                self._write_input_data_sync(process.stdin, self.input)
+            
+            # Handle output streaming
+            try:
+                reader = self._read_output_stream_arrow(process.stdout)
+                return reader
+            
+            finally:
+                # Wait for process to complete
+                process.wait()
+
+                # Restore original stdout setting
+                self.stdout = original_stdout
+                
+                if process.returncode != 0:
+                    # Read stderr for error message
+                    stderr_output = process.stderr.read().decode('utf-8') if process.stderr else ""
+                    raise SlingError(f"Sling command failed with return code: {process.returncode}\n{stderr_output}")
+                    
+        except Exception as e:
+            if isinstance(e, SlingError):
+                raise
+            raise SlingError(f"Error executing sling streaming command: {str(e)}")
 
     def run(self) -> None:
         """
