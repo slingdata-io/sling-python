@@ -1290,7 +1290,7 @@ class Sling:
             return iter([])  # Return empty iterator
 
         # Check if target object is specified
-        if self.input:
+        if self.input is not None:
             raise SlingError("pointless to pass input and stream it back?")
         
         # Enable stdout for streaming output
@@ -1351,7 +1351,7 @@ class Sling:
             raise SlingError("stream_arrow() cannot be used with a target object. Use run() method instead.")
         
         # Check if target object is specified
-        if self.input:
+        if self.input is not None:
             raise SlingError("pointless to pass input and stream it back?")
         
         # Enable stdout for streaming output
