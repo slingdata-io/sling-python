@@ -75,12 +75,11 @@ jobs:
           cd sling
           pip install -e .
           pip install pyarrow
-          cd -
           
           # Run the tests
-          python -m pytest sling/tests/tests.py -v
-          SLING_USE_ARROW=false python -m pytest sling/tests/test_sling_class.py -v
-          SLING_USE_ARROW=true python -m pytest sling/tests/test_sling_class.py -v
+          python -m pytest tests/tests.py -v
+          SLING_USE_ARROW=false python -m pytest tests/test_sling_class.py -v
+          SLING_USE_ARROW=true python -m pytest tests/test_sling_class.py -v
           
           # Clean up the development installation
           pip uninstall -y sling sling-linux-amd64
