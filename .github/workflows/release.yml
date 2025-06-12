@@ -67,12 +67,11 @@ jobs:
           cd -
 
           # Set SLING_BINARY for tests
-          export SLING_BINARY="$BIN_FOLDER/sling-linux-amd64"
-
-          echo "SLING_VERSION=$SLING_VERSION"
+          export SLING_BINARY="$PWD/$BIN_FOLDER/sling-linux-amd64"
           echo "SLING_BINARY=$SLING_BINARY"
 
           # Install main sling package in development mode for testing
+          echo $SLING_VERSION > sling/VERSION
           cd sling
           pip install -e .
           pip install pyarrow
