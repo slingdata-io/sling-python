@@ -115,7 +115,7 @@ class TestSlingInputStreaming:
             assert row['salary'] == str(sample_data[i]['salary'])  # Convert to string since CSV stores as string
             # Parse datetime string and compare with sample data
             expected_dt = sample_data[i]['created_at']
-            actual_dt = datetime.fromisoformat(row['created_at'].replace(' +00', '+00:00'))
+            actual_dt = datetime.fromisoformat(row['created_at'].replace(' +00', '+00:00').replace(' ', 'T'))
             # Convert to naive datetime to match sample data (remove timezone info)
             if actual_dt.tzinfo is not None:
                 actual_dt = actual_dt.replace(tzinfo=None)
