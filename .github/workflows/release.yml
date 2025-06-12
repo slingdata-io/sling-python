@@ -33,16 +33,34 @@ jobs:
 
       - name: Run Tests
         run: |
+          # Prepare sling-linux-amd64 package since sling depends on it
+          export BASE_FOLDER=sling_base/sling-linux-amd64
+          export BIN_FOLDER=$BASE_FOLDER/sling_linux_amd64/bin
+          mkdir -p $BIN_FOLDER
+          
           # Download linux binary
-          mkdir tmp && cd tmp
+          cd $BIN_FOLDER
           wget -q 'https://github.com/slingdata-io/sling-cli/releases/latest/download/sling_linux_amd64.tar.gz'
           tar xf sling_linux_amd64.tar.gz
-          chmod 755 sling
-          export SLING_BINARY="$PWD/sling"
-          echo "SLING_BINARY=$SLING_BINARY"
+          mv sling sling-linux-amd64
+          rm -f *.tar.gz
+          cd -
+          chmod -R 755 $BIN_FOLDER
+
+          # Set version
+          export SLING_VERSION=$($BIN_FOLDER/sling-linux-amd64 --version | sed 's/Version: //')
+          echo $SLING_VERSION > $BIN_FOLDER/VERSION
+
+          # Install dependency in editable mode
+          cd $BASE_FOLDER
+          pip install -e .
           cd -
 
-          # Install sling package in development mode for testing
+          # Set SLING_BINARY for tests
+          export SLING_BINARY="$PWD/$BIN_FOLDER/sling-linux-amd64"
+          echo "SLING_BINARY=$SLING_BINARY"
+
+          # Install main sling package in development mode for testing
           cd sling
           pip install -e .
           pip install pyarrow
@@ -54,7 +72,7 @@ jobs:
           SLING_USE_ARROW=true python -m pytest sling/tests/test_sling_class.py -v
           
           # Clean up the development installation
-          pip uninstall -y sling
+          pip uninstall -y sling sling-linux-amd64
 
       - name: Release sling-linux-amd64 to PyPi
         run: |
