@@ -115,7 +115,22 @@ class TestSlingInputStreaming:
             assert row['salary'] == str(sample_data[i]['salary'])  # Convert to string since CSV stores as string
             # Parse datetime string and compare with sample data
             expected_dt = sample_data[i]['created_at']
-            actual_dt = datetime.fromisoformat(row['created_at'].replace(' +00', '+00:00').replace(' ', 'T'))
+            
+            # Fix microseconds padding before parsing
+            dt_str = row['created_at'].replace(' +00', '+00:00').replace(' ', 'T')
+            # Handle microseconds that may have fewer than 6 digits
+            if '.' in dt_str and '+' in dt_str:
+                parts = dt_str.split('+')
+                dt_part = parts[0]
+                tz_part = '+' + parts[1]
+                if '.' in dt_part:
+                    sec_parts = dt_part.split('.')
+                    microsec = sec_parts[1]
+                    # Pad microseconds to 6 digits
+                    microsec = microsec.ljust(6, '0')
+                    dt_str = sec_parts[0] + '.' + microsec + tz_part
+            
+            actual_dt = datetime.fromisoformat(dt_str)
             # Convert to naive datetime to match sample data (remove timezone info)
             if actual_dt.tzinfo is not None:
                 actual_dt = actual_dt.replace(tzinfo=None)
