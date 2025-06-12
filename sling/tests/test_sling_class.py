@@ -11,7 +11,7 @@ from sling import Sling, SlingError, JsonEncoder
 
 try:
     import pyarrow as pa
-    HAS_ARROW = True
+    HAS_ARROW = True and os.environ.get('SLING_USE_ARROW', 'true').lower() != 'false'
 except ImportError:
     HAS_ARROW = False
 
