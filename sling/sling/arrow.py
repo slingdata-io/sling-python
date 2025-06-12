@@ -9,6 +9,22 @@ class FakeArrowType:
     def __getattr__(self, name):
         return FakeArrowType()
 
+class FakeTable(FakeArrowType):
+    @staticmethod
+    def from_pandas(*args, **kwargs):
+        return FakeArrowType()
+    
+    @staticmethod 
+    def from_batches(*args, **kwargs):
+        return FakeArrowType()
+
+class FakeArrowInvalid(Exception):
+    """Fake ArrowInvalid exception for when PyArrow is not available"""
+    pass
+
+class FakeLib:
+    ArrowInvalid = FakeArrowInvalid
+
 class FakeRecordBatchStreamReader:
     def __init__(self, *args, **kwargs):
         self._schema = FakeArrowType()
@@ -55,7 +71,9 @@ class FakePA:
     Schema = FakeArrowType
     DataType = FakeArrowType
     RecordBatch = FakeArrowType
+    Table = FakeTable
     ipc = FakeIPC()
+    lib = FakeLib()
     
     @staticmethod
     def schema(*args, **kwargs):
