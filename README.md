@@ -252,6 +252,105 @@ records = list(sling.stream())
 print(f"Found {len(records)} high-value orders")
 ```
 
+#### High-Performance Streaming with `stream_arrow()`
+
+> **🚀 Performance:** The `stream_arrow()` method provides the highest performance streaming with full data type preservation by using Apache Arrow's columnar format. Requires `pip install sling[arrow]`.
+
+> **📊 Type Safety:** Unlike `stream()` which may convert data types during CSV serialization, `stream_arrow()` preserves exact data types including integers, floats, timestamps, and more.
+
+```python
+import os
+from sling import Sling
+
+# Set postgres connection  
+# see https://docs.slingdata.io/connections/database-connections
+os.environ["POSTGRES"] = 'postgres://...'
+
+# Basic Arrow streaming from database
+sling = Sling(src_conn="postgres", src_stream="public.users", limit=1000)
+
+# Get Arrow RecordBatchStreamReader for maximum performance
+reader = sling.stream_arrow()
+
+# Convert to Arrow Table for analysis
+table = reader.read_all()
+print(f"Received {table.num_rows} rows with {table.num_columns} columns")
+print(f"Column names: {table.column_names}")
+print(f"Schema: {table.schema}")
+
+# Convert to pandas DataFrame with preserved types
+if table.num_rows > 0:
+    df = table.to_pandas()
+    print(df.dtypes)  # Shows preserved data types
+
+# Stream Arrow file with type preservation
+sling = Sling(
+    src_stream="file:///path/to/data.arrow",
+    src_options={"format": "arrow"}
+)
+
+reader = sling.stream_arrow()
+table = reader.read_all()
+
+# Access columnar data directly (very efficient)
+for column_name in table.column_names:
+    column = table.column(column_name)
+    print(f"{column_name}: {column.type}")
+
+# Process Arrow batches for large datasets (memory efficient)
+sling = Sling(
+    src_conn="postgres", 
+    src_stream="select * from large_table"
+)
+
+reader = sling.stream_arrow()
+for batch in reader:
+    # Process each batch separately to manage memory
+    print(f"Processing batch with {batch.num_rows} rows")
+    # Convert batch to pandas if needed
+    batch_df = batch.to_pandas()
+    # Process batch_df...
+
+# Round-trip with Arrow format preservation
+import pandas as pd
+
+# Write DataFrame to Arrow file with type preservation
+df = pd.DataFrame({
+    "id": [1, 2, 3],
+    "amount": [100.50, 250.75, 75.25],
+    "timestamp": pd.to_datetime(["2023-01-01", "2023-01-02", "2023-01-03"]),
+    "active": [True, False, True]
+})
+
+Sling(
+    input=df,
+    tgt_object="file:///tmp/data.arrow",
+    tgt_options={"format": "arrow"}
+).run()
+
+# Read back with full type preservation
+sling = Sling(
+    src_stream="file:///tmp/data.arrow",
+    src_options={"format": "arrow"}
+)
+
+reader = sling.stream_arrow()
+restored_table = reader.read_all()
+restored_df = restored_table.to_pandas()
+
+# Types are exactly preserved (no string conversion)
+print(restored_df.dtypes)
+assert restored_df['active'].dtype == 'bool'
+assert 'datetime64' in str(restored_df['timestamp'].dtype)
+```
+
+**Notes:**
+- `stream_arrow()` requires PyArrow: `pip install sling[arrow]`
+- Cannot be used with a target object (use `run()` instead)
+- Provides the best performance for large datasets
+- Preserves exact data types including timestamps, decimals, and booleans
+- Ideal for analytics workloads and data science applications
+
 #### Round-trip Examples
 
 ```python
