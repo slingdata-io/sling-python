@@ -754,7 +754,8 @@ class Sling:
         if self.env:
             cmd.extend(["--env", self._format_option(self.env)])
         if self.mode:
-            cmd.extend(["-m", self.mode])
+            mode_value = self.mode.value if isinstance(self.mode, Mode) else str(self.mode)
+            cmd.extend(["-m", mode_value])
         if self.limit is not None:
             cmd.extend(["-l", str(self.limit)])
         if self.offset is not None:

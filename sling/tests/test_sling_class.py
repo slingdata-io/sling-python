@@ -7,7 +7,7 @@ from decimal import Decimal
 from datetime import datetime
 from pathlib import Path
 from sling.bin import SLING_BIN
-from sling import Sling, SlingError, JsonEncoder
+from sling import Sling, SlingError, JsonEncoder, Mode
 
 try:
     import pyarrow as pa
@@ -95,6 +95,7 @@ class TestSlingInputStreaming:
         sling = Sling(
             input=sample_data,
             tgt_object=f"file://{output_file}",
+            mode=Mode.FULL_REFRESH,
             debug=True
         )
         
