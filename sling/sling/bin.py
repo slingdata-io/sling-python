@@ -39,7 +39,11 @@ def get_binary_cache_dir(version: str):
 def download_binary(version: str):
     """Download the sling binary for the current platform"""
     system, arch, archive_name, binary_name = get_platform_info()
-    version = 'v' + version.replace("v", '')  # ensure 'v' is prefix
+    
+    # Ensure version has 'v' prefix for non-latest versions
+    if version != 'latest' and not version.startswith('v'):
+        version = 'v' + version
+    
     cache_dir = get_binary_cache_dir(version)
     binary_path = cache_dir / binary_name
     
