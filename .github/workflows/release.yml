@@ -15,8 +15,7 @@ env:
   VERSION_OVERRIDE: ${{ github.event.inputs.version }}
 
 jobs:
-  release-python:
-    # runs-on: [self-hosted, Linux]
+  test-and-release:
     runs-on: ubuntu-latest
 
     steps:
@@ -27,229 +26,37 @@ jobs:
         with:
           python-version: '3.9'
 
-      - name: Pip Install
+      - name: Install dependencies
         run: |
-          pip install build twine pytest
+          pip install build twine pytest pyarrow
 
-      - name: Run Tests
+      - name: Set version
         run: |
-          # Prepare sling-linux-amd64 package since sling depends on it
-          export BASE_FOLDER=sling_base/sling-linux-amd64
-          export BIN_FOLDER=$BASE_FOLDER/sling_linux_amd64/bin
-
-          mkdir -p $BIN_FOLDER
-
-          cd $BIN_FOLDER
-
-          # Download linux binary
-          wget -q 'https://github.com/slingdata-io/sling-cli/releases/latest/download/sling_linux_amd64.tar.gz'
-          tar xf sling_linux_amd64.tar.gz
-          mv sling sling-linux-amd64
-
-          rm -f *.tar.gz
-
-          cd -
-          chmod -R 755 $BIN_FOLDER
-
-          # Set version
-          export SLING_VERSION=$( $BIN_FOLDER/sling-linux-amd64 --version | sed 's/Version: //')
-          echo $SLING_VERSION > $BIN_FOLDER/VERSION
-          if [[ $VERSION_OVERRIDE ]]
-          then
-                echo $VERSION_OVERRIDE > $BIN_FOLDER/VERSION
+          # Get version from latest release or use override
+          if [[ $VERSION_OVERRIDE ]]; then
+            echo $VERSION_OVERRIDE > sling/VERSION
+          else
+            # Get latest version from GitHub releases
+            LATEST_VERSION=$(curl -s https://api.github.com/repos/slingdata-io/sling-cli/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/' | sed 's/^v//')
+            echo $LATEST_VERSION > sling/VERSION
           fi
+          echo "Version set to: $(cat sling/VERSION)"
 
-          cp README.md $BASE_FOLDER/
-
-          # Install dependency in editable mode
-          cd sling_base/sling-linux-amd64
-          pip install -e .
-          cd -
-
-          # Set SLING_BINARY for tests
-          export SLING_BINARY="$PWD/$BIN_FOLDER/sling-linux-amd64"
-          echo "SLING_BINARY=$SLING_BINARY"
-
-          # Install main sling package in development mode for testing
-          echo $SLING_VERSION > sling/VERSION
+      - name: Run tests
+        run: |
           cd sling
+          
+          # Install sling package in development mode
           pip install -e .
-          pip install pyarrow
           
           # Run the tests
           python -m pytest tests/tests.py -v
           SLING_USE_ARROW=false python -m pytest tests/test_sling_class.py -v
           SLING_USE_ARROW=true python -m pytest tests/test_sling_class.py -v
-          
-          # Clean up the development installation
-          pip uninstall -y sling sling-linux-amd64
 
-      - name: Release sling-linux-amd64 to PyPi
+      - name: Build and release sling to PyPi
         run: |
-          export BASE_FOLDER=sling_base/sling-linux-amd64
-          export BIN_FOLDER=$BASE_FOLDER/sling_linux_amd64/bin
-
-          mkdir -p $BIN_FOLDER
-
-          cd $BIN_FOLDER
-
-          wget -q 'https://github.com/slingdata-io/sling-cli/releases/latest/download/sling_linux_amd64.tar.gz'
-          tar xf sling_linux_amd64.tar.gz
-          mv sling sling-linux-amd64
-
-          rm -f *.tar.gz
-
-          cd -
-          chmod -R 755 $BIN_FOLDER
-
-          export SLING_VERSION=$( $BIN_FOLDER/sling-linux-amd64 --version | sed 's/Version: //')
-          echo $SLING_VERSION > $BIN_FOLDER/VERSION
-          if [[ $VERSION_OVERRIDE ]]
-          then
-                echo $VERSION_OVERRIDE > $BIN_FOLDER/VERSION
-          fi
-
-          cp README.md $BASE_FOLDER/
-
-          cd sling_base/sling-linux-amd64
-          pip install -e .
-          python -m build && twine upload --verbose --skip-existing dist/*
-
-      - name: Release sling-linux-arm64 to PyPi
-        run: |
-          export BASE_FOLDER=sling_base/sling-linux-arm64
-          export BIN_FOLDER=$BASE_FOLDER/sling_linux_arm64/bin
-
-          mkdir -p $BIN_FOLDER
-
-          cd $BIN_FOLDER
-
-          wget -q 'https://github.com/slingdata-io/sling-cli/releases/latest/download/sling_linux_arm64.tar.gz'
-          tar xf sling_linux_arm64.tar.gz
-          mv sling sling-linux-arm64
-
-          rm -f *.tar.gz
-
-          cd -
-          chmod -R 755 $BIN_FOLDER
-
-          export SLING_VERSION=$( sling_base/sling-linux-amd64/sling_linux_amd64/bin/sling-linux-amd64 --version | sed 's/Version: //')
-          echo $SLING_VERSION > $BIN_FOLDER/VERSION
-          if [[ $VERSION_OVERRIDE ]]
-          then
-                echo $VERSION_OVERRIDE > $BIN_FOLDER/VERSION
-          fi
-
-          cp README.md $BASE_FOLDER/
-
-          cd $BASE_FOLDER
-          pip install -e .
-          python -m build && twine upload --verbose --skip-existing dist/*
-
-      - name: Release sling-mac-amd64 to PyPi
-        run: |
-          export BASE_FOLDER=sling_base/sling-mac-amd64
-          export BIN_FOLDER=$BASE_FOLDER/sling_mac_amd64/bin
-
-          mkdir -p $BIN_FOLDER
-
-          cd $BIN_FOLDER
-
-          wget -q 'https://github.com/slingdata-io/sling-cli/releases/latest/download/sling_darwin_amd64.tar.gz'
-          tar xf sling_darwin_amd64.tar.gz
-          mv sling sling-mac-amd64
-
-          rm -f *.tar.gz
-
-          cd -
-          chmod -R 755 $BIN_FOLDER
-
-          export SLING_VERSION=$( sling_base/sling-linux-amd64/sling_linux_amd64/bin/sling-linux-amd64 --version | sed 's/Version: //')
-          echo $SLING_VERSION > $BIN_FOLDER/VERSION
-          if [[ $VERSION_OVERRIDE ]]
-          then
-                echo $VERSION_OVERRIDE > $BIN_FOLDER/VERSION
-          fi
-
-          cp README.md $BASE_FOLDER/
-
-          cd $BASE_FOLDER
-          pip install -e .
-          python -m build && twine upload --verbose --skip-existing dist/*
-
-      - name: Release sling-mac-arm64 to PyPi
-        run: |
-          export BASE_FOLDER=sling_base/sling-mac-arm64
-          export BIN_FOLDER=$BASE_FOLDER/sling_mac_arm64/bin
-
-          mkdir -p $BIN_FOLDER
-
-          cd $BIN_FOLDER
-
-          wget -q 'https://github.com/slingdata-io/sling-cli/releases/latest/download/sling_darwin_arm64.tar.gz'
-          tar xf sling_darwin_arm64.tar.gz
-          mv sling sling-mac-arm64
-
-          rm -f *.tar.gz
-
-          cd -
-          chmod -R 755 $BIN_FOLDER
-
-          export SLING_VERSION=$( sling_base/sling-linux-amd64/sling_linux_amd64/bin/sling-linux-amd64 --version | sed 's/Version: //')
-          echo $SLING_VERSION > $BIN_FOLDER/VERSION
-          if [[ $VERSION_OVERRIDE ]]
-          then
-                echo $VERSION_OVERRIDE > $BIN_FOLDER/VERSION
-          fi
-
-          cp README.md $BASE_FOLDER/
-
-          cd $BASE_FOLDER
-          pip install -e .
-          python -m build && twine upload --verbose --skip-existing dist/*
-
-      - name: Release sling-windows-amd64 to PyPi
-        run: |
-          export BASE_FOLDER=sling_base/sling-windows-amd64
-          export BIN_FOLDER=$BASE_FOLDER/sling_windows_amd64/bin
-
-          mkdir -p $BIN_FOLDER
-
-          cd $BIN_FOLDER
-
-          wget -q 'https://github.com/slingdata-io/sling-cli/releases/latest/download/sling_windows_amd64.tar.gz'
-          tar xf sling_windows_amd64.tar.gz
-          mv sling.exe sling-win-amd64.exe
-
-          rm -f *.tar.gz
-
-          cd -
-          chmod -R 755 $BIN_FOLDER
-
-          export SLING_VERSION=$( sling_base/sling-linux-amd64/sling_linux_amd64/bin/sling-linux-amd64 --version | sed 's/Version: //')
-          echo $SLING_VERSION > $BIN_FOLDER/VERSION
-          if [[ $VERSION_OVERRIDE ]]
-          then
-                echo $VERSION_OVERRIDE > $BIN_FOLDER/VERSION
-          fi
-
-          cp README.md $BASE_FOLDER/
-
-          cd $BASE_FOLDER
-          pip install -e .
-          python -m build && twine upload --verbose --skip-existing dist/*
-
-      - name: Release sling to PyPi
-        run: |
-          export SLING_VERSION=$( sling_base/sling-linux-amd64/sling_linux_amd64/bin/sling-linux-amd64 --version | sed 's/Version: //')
-          echo $SLING_VERSION > sling/VERSION
-          if [[ $VERSION_OVERRIDE ]]
-          then
-                echo $VERSION_OVERRIDE > sling/VERSION
-          fi
-
           cp README.md sling/
-
+          
           cd sling
-          pip install -e .
           python -m build && twine upload --verbose --skip-existing dist/*

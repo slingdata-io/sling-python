@@ -1,6 +1,8 @@
 import os, platform, pathlib
 from setuptools import setup
 from setuptools import find_packages
+from setuptools.command.install import install
+from setuptools.command.develop import develop
 
 
 SLING_VERSION = '0.0.0dev'
@@ -16,14 +18,46 @@ if readme_path.exists():
   with readme_path.open() as file:
     README = file.read()
 
-install_requires = [
-    f'sling-linux-arm64=={SLING_VERSION} ; sys_platform=="linux" and platform_machine=="aarch64"',
-    f'sling-linux-amd64=={SLING_VERSION} ; sys_platform=="linux" and platform_machine!="aarch64"',
-    f'sling-windows-amd64=={SLING_VERSION} ; sys_platform=="win32" and platform_machine=="ARM64"',
-    f'sling-windows-amd64=={SLING_VERSION} ; sys_platform=="win32" and platform_machine!="ARM64"',
-    f'sling-mac-arm64=={SLING_VERSION} ; sys_platform=="darwin" and platform_machine=="arm64"',
-    f'sling-mac-amd64=={SLING_VERSION} ; sys_platform=="darwin" and platform_machine!="arm64"',
-]
+# No platform-specific dependencies needed - binaries are downloaded from GitHub
+install_requires = []
+
+def download_sling_binary():
+    """Download the sling binary during installation"""
+    try:
+        # Import our download logic
+        import sys
+        
+        # Add current directory to path to import our modules
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        sys.path.insert(0, current_dir)
+        
+        # Import and run the download function
+        from sling.bin import download_binary
+        
+        # Map version format if needed (e.g., 0.0.0dev -> latest)
+        version = SLING_VERSION
+        if 'dev' in version or version == '0.0.0':
+            version = 'latest'
+        
+        download_binary(version)
+        
+    except Exception as e:
+        # Don't fail the installation if binary download fails
+        # It will be attempted again on first use
+        print(f"⚠️  Sling Binary download during installation failed: {e}")
+        print(f"    Binary will be downloaded on first use instead.")
+
+class PostInstallCommand(install):
+    """Custom installation command that downloads binary after install"""
+    def run(self):
+        install.run(self)
+        self.execute(download_sling_binary, [], msg="Downloading sling binary...")
+
+class PostDevelopCommand(develop):
+    """Custom development command that downloads binary after develop install"""  
+    def run(self):
+        develop.run(self)
+        self.execute(download_sling_binary, [], msg="Downloading sling binary...")
 
 setup(
   name='sling',
@@ -47,6 +81,10 @@ setup(
   },
   entry_points={
     'console_scripts': ['sling=sling:cli',],
+  },
+  cmdclass={
+    'install': PostInstallCommand,
+    'develop': PostDevelopCommand,
   },
   classifiers=[
     'Programming Language :: Python :: 3', 'Intended Audience :: Developers',
