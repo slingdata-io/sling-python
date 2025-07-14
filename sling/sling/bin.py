@@ -68,8 +68,12 @@ def download_binary(version: str):
             try:
                 with urllib.request.urlopen(github_url, context=context) as response:
                     tmp_file.write(response.read())
-            except ssl.SSLError:
+            except (ssl.SSLError, urllib.error.URLError) as e:
+                # Check if it's an SSL-related error
+                if isinstance(e, urllib.error.URLError) and 'SSL' not in str(e):
+                    raise  # Re-raise if it's not SSL-related
                 # Fallback for environments with certificate issues
+                print("SSL certificate verification failed, trying without verification...")
                 context = ssl.create_default_context()
                 context.check_hostname = False
                 context.verify_mode = ssl.CERT_NONE
