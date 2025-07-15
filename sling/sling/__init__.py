@@ -1035,9 +1035,6 @@ class Sling:
                     csv_writer = csv.writer(csv_buffer)
                     csv_writer.writerow(headers)
                     header_line = csv_buffer.getvalue()
-                    if self.debug:
-                        sys.stderr.write(f"Debug: Writing headers: {header_line.strip()}\n")
-                        sys.stderr.flush()
                     stdin.write(header_line.encode('utf-8'))
                     stdin.flush()
                     headers_written = True
@@ -1050,9 +1047,6 @@ class Sling:
                     row = [str(record.get(h, '')) for h in headers]
                     csv_writer.writerow(row)
                     csv_line = csv_buffer.getvalue()
-                    if self.debug:
-                        sys.stderr.write(f"Debug: Writing row: {csv_line.strip()}\n")
-                        sys.stderr.flush()
                     stdin.write(csv_line.encode('utf-8'))
                     stdin.flush()
             
@@ -1133,10 +1127,6 @@ class Sling:
                         value = column[row_idx].as_py()  # Converts to native Python type
                         record[column_name] = value
                     
-                    if self.debug:
-                        sys.stderr.write(f"Debug: Arrow record: {record}\n")
-                        sys.stderr.flush()
-                    
                     yield record
                     
         except pa.lib.ArrowInvalid as e:
@@ -1164,22 +1154,14 @@ class Sling:
             if not first_line:
                 return
                 
-            if self.debug:
-                print(f"Debug: First line (headers): '{first_line}'")
-                
             # Parse headers
             headers = list(csv.reader([first_line]))[0]
-            
-            if self.debug:
-                print(f"Debug: Parsed headers: {headers}")
             
             # Read and parse remaining lines one by one
             for line in stdout:
                 line_str = line.decode('utf-8').strip()
                 if line_str:
                     try:
-                        if self.debug:
-                            print(f"Debug: Processing line: '{line_str}'")
                         values = list(csv.reader([line_str]))[0]
                         # Pad values if fewer than headers
                         while len(values) < len(headers):
@@ -1188,8 +1170,6 @@ class Sling:
                         values = values[:len(headers)]
                         # Create record dict
                         record = dict(zip(headers, values))
-                        if self.debug:
-                            print(f"Debug: Created record: {record}")
                         yield record
                     except Exception as e:
                         if self.debug:
@@ -1304,9 +1284,6 @@ class Sling:
             
             # Handle input streaming
             if self.input is not None:
-                if self.debug:
-                    sys.stderr.write("Debug: Starting input streaming\n")
-                    sys.stderr.flush()
                 # Write input data directly in the main thread
                 self._write_input_data_sync(process.stdin, self.input)
             
@@ -1365,9 +1342,6 @@ class Sling:
             
             # Handle input streaming
             if self.input is not None:
-                if self.debug:
-                    sys.stderr.write("Debug: Starting input streaming\n")
-                    sys.stderr.flush()
                 # Write input data directly in the main thread
                 self._write_input_data_sync(process.stdin, self.input)
             
@@ -1455,9 +1429,6 @@ class Sling:
             
             # Handle input streaming if provided
             if self.input is not None:
-                if self.debug:
-                    sys.stderr.write("Debug: Starting input streaming\n")
-                    sys.stderr.flush()
                 # Write input data directly in the main thread
                 self._write_input_data_sync(process.stdin, self.input)
             
