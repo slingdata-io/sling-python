@@ -1017,6 +1017,7 @@ class Sling:
                 selected_columns = [col.strip() for col in self.select.split(',')]
         
         try:
+            to_value = lambda v: '\\N' if v is None else v
             for record in record_iterator:
                 record_count += 1
                 if not record:  # Skip empty records but count them
@@ -1043,8 +1044,8 @@ class Sling:
                     # Write the record as CSV
                     csv_buffer = io.StringIO()
                     csv_writer = csv.writer(csv_buffer)
-                    # Ensure record has all fields, fill missing with empty string
-                    row = [str(record.get(h, '')) for h in headers]
+                    # Ensure record has all fields, fill missing with null value
+                    row = [str(to_value(record.get(h, None))) for h in headers]
                     csv_writer.writerow(row)
                     csv_line = csv_buffer.getvalue()
                     stdin.write(csv_line.encode('utf-8'))
