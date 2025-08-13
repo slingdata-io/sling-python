@@ -700,8 +700,7 @@ class Sling:
             # When input data is provided, we don't add source parameters
             # The sling binary will auto-detect stdin
             # Set source format to Arrow if using Arrow mode with input data
-            # BUT only if we're streaming to stdout or the target explicitly uses Arrow
-            if HAS_ARROW and self._should_use_arrow() and self._should_use_arrow_for_input():
+            if HAS_ARROW and self._should_use_arrow():
                 if self.src_options is None:
                     self.src_options = SourceOptions(format=Format.ARROW, null_if='\\N')
                 elif isinstance(self.src_options, dict):
@@ -784,7 +783,7 @@ class Sling:
     
     def _write_input_data_sync(self, stdin: IO, input_data: Any):
         """Write input data to stdin, using Arrow IPC format if available, otherwise CSV"""
-        if HAS_ARROW and self._should_use_arrow() and self._should_use_arrow_for_input():
+        if HAS_ARROW and self._should_use_arrow():
             self._write_input_data_arrow(stdin, input_data)
         else:
             self._write_input_data_csv(stdin, input_data)
@@ -794,27 +793,15 @@ class Sling:
         # Use Arrow if available and not disabled via env var
         return HAS_ARROW and os.environ.get('SLING_USE_ARROW', 'true').lower() != 'false'
     
-    def _should_use_arrow_for_input(self) -> bool:
-        """Determine if Arrow format should be used for input data"""
-        # Only use Arrow for input if:
-        # 1. We're streaming to stdout (no target object)
-        # 2. Or the target explicitly requests Arrow format
-        if not self.tgt_object:
-            # Streaming to stdout
-            return True
-        
-        # Check if target format is explicitly set to Arrow
-        if self.tgt_options:
-            if isinstance(self.tgt_options, dict) and self.tgt_options.get('format') == Format.ARROW:
-                return True
-            elif hasattr(self.tgt_options, 'format') and self.tgt_options.format == Format.ARROW:
-                return True
-        
-        # For file targets, don't use Arrow for input unless explicitly requested
-        return False
-    
     def _convert_to_arrow_table(self, input_data: Any) -> pa.Table:
         """Convert input data to Arrow Table"""
+        # Check for Arrow Dataset
+        if HAS_ARROW and pa is not None:
+          # if isinstance(input_data, pa.Dataset):
+          #   return input_data.to_table()
+          if isinstance(input_data, pa.Table):
+            return input_data
+
         # Check for pandas DataFrame first
         if HAS_PANDAS and pd is not None and isinstance(input_data, pd.DataFrame):
             return pa.Table.from_pandas(input_data, preserve_index=False)

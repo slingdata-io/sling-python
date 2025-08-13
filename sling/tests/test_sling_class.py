@@ -564,8 +564,9 @@ class TestSlingErrorHandling:
         """Test handling of empty input data"""
         output_file = os.path.join(temp_dir, "empty.csv")
         
+        df = pd.DataFrame({'column1': []})
         sling = Sling(
-            input=[],  # Empty list
+            input=df,  # Empty dataframe
             tgt_object=f"file://{output_file}",
             debug=True
         )
