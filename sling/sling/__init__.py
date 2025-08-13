@@ -703,11 +703,20 @@ class Sling:
             # BUT only if we're streaming to stdout or the target explicitly uses Arrow
             if HAS_ARROW and self._should_use_arrow() and self._should_use_arrow_for_input():
                 if self.src_options is None:
-                    self.src_options = SourceOptions(format=Format.ARROW)
+                    self.src_options = SourceOptions(format=Format.ARROW, null_if='\\N')
                 elif isinstance(self.src_options, dict):
                     self.src_options['format'] = Format.ARROW
+                    self.src_options['null_if'] = '\\N'
                 elif hasattr(self.src_options, 'format'):
                     self.src_options.format = Format.ARROW
+                    self.src_options.null_if ='\\N'
+            else:
+                if self.src_options is None:
+                    self.src_options = SourceOptions(null_if='\\N')
+                elif isinstance(self.src_options, dict):
+                    self.src_options['null_if'] = '\\N'
+                elif hasattr(self.src_options, 'format'):
+                    self.src_options.null_if ='\\N'
         else:
             if self.src_conn:
                 # Handle file:// URLs - use LOCAL connection
