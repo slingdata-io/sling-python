@@ -28,7 +28,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install build twine pytest pyarrow
+          pip install build twine pytest pyarrow pandas
 
       - name: Set version
         run: |
