@@ -6,6 +6,7 @@ import csv
 from decimal import Decimal
 from datetime import datetime
 from pathlib import Path
+import pandas as pd
 from sling.bin import SLING_BIN
 from sling import Sling, SlingError, JsonEncoder, Mode
 
@@ -677,7 +678,6 @@ class TestSlingArrowStreaming:
     @pytest.mark.skipif(not HAS_PANDAS, reason="Pandas is not installed")
     def test_stream_arrow_from_pandas_input(self, temp_dir, sample_data):
         """Test writing pandas DataFrame to a file and streaming it back as Arrow"""
-        import pandas as pd
         df = pd.DataFrame(sample_data)
         
         # Write pandas DataFrame to a temporary Arrow file
