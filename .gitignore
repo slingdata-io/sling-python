@@ -132,3 +132,6 @@ Pipfile
 .DS_Store
 
 VERSION
+.mcpregistry_github_token
+.mcpregistry_registry_token
+mcp-key.pem

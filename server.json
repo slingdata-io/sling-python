@@ -1,0 +1,53 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-16/server.schema.json",
+  "name": "io.slingdata/sling-cli",
+  "version": "1.4.24",
+  "description": "Sling CLI MCP server for data pipeline and replication management",
+  "homepage": "https://github.com/slingdata-io/sling",
+  "sourceUrl": "https://github.com/slingdata-io/sling",
+  "license": "MIT",
+  "licensePath": "LICENSE",
+  "vendor": {
+    "name": "SlingData",
+    "url": "https://slingdata.io"
+  },
+  "runtime": {
+    "name": "python",
+    "version": ">=3.8"
+  },
+  "commands": {
+    "default": {
+      "command": "sling",
+      "args": ["mcp"]
+    }
+  },
+  "installation": {
+    "pip": {
+      "package": "sling"
+    }
+  },
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "sling",
+      "version": "1.4.23",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ],
+  "categories": [
+    "data-processing",
+    "data-wrangling",
+    "developer-tools"
+  ],
+  "keywords": [
+    "data",
+    "query",
+    "SQL",
+    "pipeline",
+    "replication",
+    "etl",
+    "database"
+  ]
+}

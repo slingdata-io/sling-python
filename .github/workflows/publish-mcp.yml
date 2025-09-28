@@ -1,0 +1,59 @@
+name: Publish to MCP Registry
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish'
+        required: true
+        type: string
+
+jobs:
+  
+  # from https://github.com/domdomegg/time-mcp-pypi/blob/master/.github/workflows/ci.yml
+  publish:
+    needs: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write  # Required for creating GitHub releases
+      id-token: write  # Required for MCP registry OIDC authentication
+    env:
+      CI: true
+    steps:
+      - name: Checkout ${{ github.sha }}
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.13'
+
+      - name: Extract version
+        id: version
+        run: echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+
+      - name: Install dependencies
+        run: pip install build
+
+      - name: Update project version
+        run: |
+          sed -i 's/{{VERSION}}/${{ steps.version.outputs.VERSION }}/g' server.json
+
+      - name: Install MCP Publisher
+        run: |
+          curl -L "https://github.com/modelcontextprotocol/registry/releases/download/v1.0.0/mcp-publisher_1.0.0_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+      
+      - name: Login to MCP Registry
+        run: ./mcp-publisher login github-oidc
+      
+      - name: Publish to MCP Registry
+        run: ./mcp-publisher publish
+
+      # - name: Create GitHub Release
+      #   uses: softprops/action-gh-release@v2
+      #   with:
+      #     files: dist/*
+      #     generate_release_notes: true
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

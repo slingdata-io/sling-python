@@ -477,4 +477,17 @@ pytest sling/tests/test_sling_class.py -v
 
 ## MCP
 
+To Login:
+
+```
+mcp-publisher login dns --domain slingdata.io --private-key $(openssl pkey -in mcp-key.pem  -noout -text | grep -A3 "priv:" | tail -n +2 | tr -d ' :\n')`
+```
+
+To Publish:
+
+```
+mcp-publisher publish
+```
+
+
 mcp-name: io.slingdata/sling-cli
