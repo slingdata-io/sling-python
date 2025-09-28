@@ -485,8 +485,12 @@ mcp-publisher login dns --domain slingdata.io --private-key $(openssl pkey -in m
 
 To Publish:
 
-```
+```bash
+# to publish, adjust the version first in server.json
 mcp-publisher publish
+
+# check
+curl "https://registry.modelcontextprotocol.io/v0/servers?search=io.slingdata/sling-cli"
 ```
 
 
