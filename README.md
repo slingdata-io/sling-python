@@ -474,3 +474,7 @@ pipeline.run()
 pytest sling/tests/tests.py -v
 pytest sling/tests/test_sling_class.py -v
 ```
+
+## MCP
+
+mcp-name: io.slingdata/sling-cli
