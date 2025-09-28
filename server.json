@@ -1,7 +1,7 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-16/server.schema.json",
   "name": "io.slingdata/sling-cli",
-  "version": "1.4.24",
+  "version": "1.4.23",
   "description": "Sling CLI MCP server for data pipeline and replication management",
   "homepage": "https://github.com/slingdata-io/sling",
   "sourceUrl": "https://github.com/slingdata-io/sling",
@@ -30,7 +30,7 @@
     {
       "registryType": "pypi",
       "identifier": "sling",
-      "version": "1.4.23",
+      "version": "1.4.23.post1",
       "transport": {
         "type": "stdio"
       }
