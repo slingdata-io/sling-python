@@ -12,7 +12,6 @@ jobs:
   
   # from https://github.com/domdomegg/time-mcp-pypi/blob/master/.github/workflows/ci.yml
   publish:
-    needs: ci
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
