@@ -492,34 +492,40 @@ def cli(*args, return_output=False):
   return 0
 
 
-def _exec_cmd(cmd, stdin=None, stdout=PIPE, stderr=STDOUT, env:dict=None):
-  lines = []
+def _exec_cmd(
+    cmd: str, stdin=None, stdout=PIPE, stderr=STDOUT, env: dict[str, str] | None = None
+):
+    lines: list[str] = []
 
-  env = env or {}
-  for k,v in os.environ.items():
-    env[k] = env.get(k, v)
+    env = env or {}
+    for k, v in os.environ.items():
+        env[k] = env.get(k, v)
 
-  env['SLING_PACKAGE'] = 'python'
-  for pkg in ['dagster', 'airflow', 'temporal', 'orkes']:
-    if is_package(pkg):
-      env['SLING_PACKAGE'] = pkg
+    env["SLING_PACKAGE"] = "python"
+    for pkg in ["dagster", "airflow", "temporal", "orkes"]:
+        if is_package(pkg):
+            env["SLING_PACKAGE"] = pkg
 
-  with Popen(cmd, shell=True, env=env, stdin=stdin, stdout=stdout, stderr=stderr) as proc:
-    if stdout and stdout != STDOUT and proc.stdout:
-      for line in proc.stdout:
-        line = str(line.strip(), 'utf-8', errors='replace')
-        yield line
+    with Popen(
+        cmd, shell=True, env=env, stdin=stdin, stdout=stdout, stderr=stderr
+    ) as proc:
+        if stdout and stdout != STDOUT and proc.stdout:
+            for line in proc.stdout:
+                line = str(line.strip(), "utf-8", errors="replace")
+                lines.append(line)
+                yield line
 
-    proc.wait()
+        proc.wait()
 
-    if stderr and stderr != STDOUT and proc.stderr:
-      lines = '\n'.join(list(proc.stderr))
+        if stderr and stderr != STDOUT and proc.stderr:
+            lines.extend(
+                str(line.strip(), "utf-8", errors="replace") for line in proc.stderr
+            )
 
-    if proc.returncode != 0:
-      if len(lines) > 0:
-          raise Exception(f'Sling command failed:\n{lines}')
-      raise Exception(f'Sling command failed')
-
+        if proc.returncode != 0:
+            if len(lines) > 0:
+                raise Exception(f"Sling command failed:\n{'\n'.join(lines)}")
+            raise Exception("Sling command failed")
 
 
 class SlingError(Exception):
