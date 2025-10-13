@@ -763,6 +763,23 @@ class TestSlingArrowStreaming:
             assert abs(actual - expected) < 0.001, f"Salary mismatch at index {i}: {actual} != {expected}"
 
 
+class TestExecCmd:
+    """Tests for the internal command execution helper."""
+
+    def test_exec_cmd_includes_stdout_on_error(self):
+        """When a subprocess prints an error to STDOUT and exits non-zero
+        the helper should include that output in the raised exception.
+        """
+        from sling import _exec_cmd
+
+        cmd = "bash -c 'echo fatal: invalid stream; exit 1'"
+
+        with pytest.raises(Exception) as excinfo:
+            list(_exec_cmd(cmd))
+
+        assert 'fatal:' in str(excinfo.value)
+
+
 if __name__ == "__main__":
     # Run tests if executed directly
     pytest.main([__file__, "-v"]) 
