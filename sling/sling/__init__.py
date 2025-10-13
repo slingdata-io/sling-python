@@ -493,7 +493,7 @@ def cli(*args, return_output=False):
 
 
 def _exec_cmd(
-    cmd: str, stdin=None, stdout=PIPE, stderr=STDOUT, env: dict[str, str] | None = None
+    cmd: str, stdin=None, stdout=PIPE, stderr=STDOUT, env: dict = None
 ):
     lines: list[str] = []
 
@@ -524,7 +524,7 @@ def _exec_cmd(
 
         if proc.returncode != 0:
             if len(lines) > 0:
-                raise Exception(f"Sling command failed:\n{'\n'.join(lines)}")
+                raise Exception("Sling command failed:\n" + "\n".join(lines))
             raise Exception("Sling command failed")
 
 
