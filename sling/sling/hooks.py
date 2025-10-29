@@ -329,17 +329,23 @@ class HookMap:
   end: List[Union[Hook, dict]]
   pre: List[Union[Hook, dict]]
   post: List[Union[Hook, dict]]
+  pre_merge: List[Union[Hook, dict]]
+  post_merge: List[Union[Hook, dict]]
 
   def __init__(self, 
               start: List[Union[Hook, dict]] = None,
               end: List[Union[Hook, dict]] = None,
               pre: List[Union[Hook, dict]] = None,
               post: List[Union[Hook, dict]] = None,
+              pre_merge: List[Union[Hook, dict]] = None,
+              post_merge: List[Union[Hook, dict]] = None,
               ) -> None:
     self.start = start or []
     self.end = end or []
     self.pre = pre or []
     self.post = post or []
+    self.pre_merge = pre_merge or []
+    self.post_merge = post_merge or []
   
   def to_dict(self) -> dict:
     """Convert HookMap to dictionary for serialization"""
@@ -352,6 +358,10 @@ class HookMap:
       result['pre'] = hooks_to_dict(self.pre)
     if self.post:
       result['post'] = hooks_to_dict(self.post)
+    if self.pre_merge:
+      result['pre_merge'] = hooks_to_dict(self.pre_merge)
+    if self.post_merge:
+      result['post_merge'] = hooks_to_dict(self.post_merge)
     return result
 
 # Step aliases for all hook classes
