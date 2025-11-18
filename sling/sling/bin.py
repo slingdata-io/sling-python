@@ -32,7 +32,13 @@ def get_platform_info():
 
 def get_binary_cache_dir(version: str):
     """Get the directory where binaries are cached"""
-    cache_dir = Path.home() / '.sling' / 'bin' /  'sling' / version
+    # Check for SLING_HOME_DIR environment variable, otherwise use default
+    sling_home = os.getenv('SLING_HOME_DIR')
+    if sling_home:
+        home_dir = Path(sling_home)
+    else:
+        home_dir = Path.home() / '.sling'
+    cache_dir = home_dir / 'bin' /  'sling' / version
     cache_dir.mkdir(parents=True, exist_ok=True)
     return cache_dir
 
