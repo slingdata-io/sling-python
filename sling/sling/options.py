@@ -82,6 +82,7 @@ class TargetOptions:
   ignore_existing: bool
   delete_missing: bool
   column_casing: str
+  column_typing: dict
   add_new_columns: bool
   adjust_column_type: bool
   table_keys: dict
@@ -90,7 +91,7 @@ class TargetOptions:
   pre_sql: str
   post_sql: str
 
-  def __init__(self, 
+  def __init__(self,
               header: bool = None,
               compression: Union[Compression, str] = None,
               concurrency: int = None,
@@ -105,6 +106,7 @@ class TargetOptions:
               ignore_existing: bool = None,
               delete_missing: bool = None,
               column_casing: str = None,
+              column_typing: dict = None,
               add_new_columns: bool = None,
               adjust_column_type: bool = None,
               table_keys: dict = {},
@@ -127,6 +129,7 @@ class TargetOptions:
     self.ignore_existing = ignore_existing
     self.delete_missing = delete_missing
     self.column_casing = column_casing
+    self.column_typing = column_typing
     self.add_new_columns = add_new_columns
     self.adjust_column_type = adjust_column_type
     self.table_keys = table_keys
