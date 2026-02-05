@@ -47,7 +47,7 @@ class Format(Enum):
 class Compression(Enum):
   """
   Enum representing the available Sling compression types.
-  
+
   AUTO: Auto-detect compression type
   NONE: No compression
   ZIP: ZIP compression
@@ -60,4 +60,19 @@ class Compression(Enum):
   ZIP = "zip"
   GZIP = "gzip"
   SNAPPY = "snappy"
-  ZSTD = "zstd" 
+  ZSTD = "zstd"
+
+
+class MergeStrategy(Enum):
+  """
+  Enum representing the available Sling merge strategies for incremental/backfill modes.
+
+  UPDATE_INSERT: Update existing rows, insert new rows (standard upsert behavior)
+  DELETE_INSERT: Delete matching rows, then insert all (safe and reliable)
+  INSERT: Insert only, skip existing (append-only scenarios)
+  UPDATE: Update only, skip new (update existing records only)
+  """
+  UPDATE_INSERT = "update_insert"
+  DELETE_INSERT = "delete_insert"
+  INSERT = "insert"
+  UPDATE = "update"

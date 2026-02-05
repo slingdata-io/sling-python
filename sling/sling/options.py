@@ -1,5 +1,5 @@
 from typing import Union
-from .enum import Format, Compression
+from .enum import Format, Compression, MergeStrategy
 
 class SourceOptions:
   trim_space: bool
@@ -81,6 +81,7 @@ class TargetOptions:
   use_bulk: bool
   ignore_existing: bool
   delete_missing: bool
+  merge_strategy: Union[MergeStrategy, str]
   column_casing: str
   column_typing: dict
   add_new_columns: bool
@@ -105,6 +106,7 @@ class TargetOptions:
               use_bulk: bool = None,
               ignore_existing: bool = None,
               delete_missing: bool = None,
+              merge_strategy: Union[MergeStrategy, str] = None,
               column_casing: str = None,
               column_typing: dict = None,
               add_new_columns: bool = None,
@@ -128,6 +130,7 @@ class TargetOptions:
     self.use_bulk = use_bulk
     self.ignore_existing = ignore_existing
     self.delete_missing = delete_missing
+    self.merge_strategy = merge_strategy
     self.column_casing = column_casing
     self.column_typing = column_typing
     self.add_new_columns = add_new_columns

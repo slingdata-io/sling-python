@@ -4,7 +4,7 @@ from typing import Iterable, List, Union, Dict, Any, Optional, IO
 from json import JSONEncoder
 from .hooks import HookMap, Hook, hooks_to_dict
 from .options import SourceOptions, TargetOptions
-from .enum import Mode, Format, Compression
+from .enum import Mode, Format, Compression, MergeStrategy
 from .bin import SLING_BIN
 
 # Try to import pyarrow, fallback to CSV if not available
@@ -45,6 +45,8 @@ class JsonEncoder(JSONEncoder):
     elif isinstance(o, Format):
       return o.value
     elif isinstance(o, Compression):
+      return o.value
+    elif isinstance(o, MergeStrategy):
       return o.value
     elif isinstance(o, datetime.datetime):
       return str(o)
