@@ -38,15 +38,10 @@ is_package = lambda text: any([
 
 class JsonEncoder(JSONEncoder):
   def default(self, o):
+    from enum import Enum as BaseEnum
     if hasattr(o, 'to_dict'):
       return o.to_dict()
-    elif isinstance(o, Mode):
-      return o.value
-    elif isinstance(o, Format):
-      return o.value
-    elif isinstance(o, Compression):
-      return o.value
-    elif isinstance(o, MergeStrategy):
+    elif isinstance(o, BaseEnum):
       return o.value
     elif isinstance(o, datetime.datetime):
       return str(o)

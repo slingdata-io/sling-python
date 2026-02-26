@@ -1,0 +1,399 @@
+name: "Sample API"
+description: "A comprehensive sample API spec covering all supported fields"
+
+queues:
+  - user_ids
+  - order_ids
+  - event_ids
+
+authentication:
+  type: "oauth2"
+  flow: "client_credentials"
+  client_id: '{require(secrets.client_id, "client_id required")}'
+  client_secret: '{require(secrets.client_secret, "client_secret required")}'
+  authentication_url: "https://auth.example.com/oauth/token"
+
+defaults:
+  state:
+    base_url: "https://api.example.com/v1"
+    limit: 50
+    anchor_date: '{coalesce(date_parse(inputs.anchor_date), date_add(now(), -1, "year"))}'
+
+  request:
+    url: "{state.base_url}/default"
+    timeout: 30
+    method: "GET"
+    headers:
+      Accept: "application/json"
+      X-Api-Version: "2024-01-01"
+    parameters:
+      limit: "{state.limit}"
+      offset: "{state.offset}"
+    payload:
+      format: "full"
+    rate: 10
+    concurrency: 3
+
+  response:
+    records:
+      jmespath: "data[]"
+      primary_key: ["id"]
+      limit: 10000
+      casing: "snake"
+      select:
+        - "*"
+        - "full_name as name"
+      duplicate_tolerance: "100000,0.001"
+
+    rules:
+      - action: "retry"
+        condition: "response.status == 429"
+        max_attempts: 5
+        backoff: "exponential"
+        backoff_base: 2
+        message: "Rate limited, retrying"
+
+      - action: "stop"
+        condition: "response.status == 403"
+        message: "Access denied"
+
+      - action: "continue"
+        condition: "response.status == 404"
+
+      - action: "break"
+        condition: "response.status == 422"
+
+      - action: "fail"
+        condition: "response.status == 500"
+        message: "Server error"
+
+    processors:
+      - expression: "log(record)"
+
+  pagination:
+    next_state:
+      offset: "{state.offset + state.limit}"
+    stop_condition: "length(response.records) < state.limit"
+
+  setup:
+    - if: "state.run_health_check"
+      request:
+        url: "{state.base_url}/health"
+        timeout: 5
+        method: "GET"
+        headers:
+          Accept: "application/json"
+        parameters: {}
+        rate: 1
+        concurrency: 1
+      pagination:
+        next_state: {}
+        stop_condition: "true"
+      response:
+        records:
+          jmespath: "status"
+        processors:
+          - expression: "log(record)"
+      authentication:
+        type: "static"
+        headers:
+          Authorization: "Bearer health-check-token"
+      iterate: "state.health_targets"
+      into: "state.health_target"
+
+  teardown:
+    - request:
+        url: "{state.base_url}/audit"
+        method: "POST"
+        payload:
+          event: "spec_completed"
+
+  iterate:
+    over: '{require(inputs.regions, "regions required")}'
+    into: "state.region"
+    concurrency: 2
+
+  depends_on: ["prerequisite"]
+
+  overrides:
+    mode: "incremental"
+    label: "default-label"
+
+  authentication:
+    headers:
+      X-Custom-Auth: "custom-token"
+
+endpoints:
+
+  # Minimal endpoint - just a URL
+  account:
+    description: "Retrieve account information"
+    docs: "https://api.example.com/docs/account"
+    request:
+      url: "{state.base_url}/account"
+      parameters: {}
+    pagination: {}
+    overrides:
+      mode: full-refresh
+
+  # Endpoint with all Request fields
+  users:
+    name: "users_endpoint"
+    description: "List all users"
+    docs: "https://api.example.com/docs/users"
+    state:
+      offset: 0
+    request:
+      url: "{state.base_url}/users"
+      timeout: 60
+      method: "POST"
+      headers:
+        X-Custom: "value"
+      parameters:
+        include: "details"
+      payload:
+        query: "active users"
+      rate: 20
+      concurrency: 5
+    response:
+      processors:
+        - expression: "record.id"
+          output: "queue.user_ids"
+        - expression: "date_parse(record.created_at)"
+          output: "record.created_date"
+
+  # Endpoint with iterate, depends_on, and all Record fields via jq
+  user_orders:
+    description: "Get orders for each user"
+    depends_on: ["users"]
+    iterate:
+      over: "queue.user_ids"
+      into: "state.user_id"
+      concurrency: 5
+    request:
+      url: "{state.base_url}/users/{state.user_id}/orders"
+    response:
+      records:
+        jq: ".orders[]"
+        primary_key: ["id"]
+        update_key: "updated_at"
+        limit: 5000
+        casing: "snake"
+        select:
+          - "id"
+          - "total"
+          - "order_date as date"
+        duplicate_tolerance: "50000,0.01"
+      processors:
+        - expression: "state.user_id"
+          output: "record.user_id"
+        - expression: "record.id"
+          output: "queue.order_ids"
+
+  # Incremental sync with all Processor fields
+  orders_incremental:
+    description: "Incremental order sync"
+    state:
+      offset: 0
+      updated_since: '{coalesce(sync.last_updated, date_format(date_add(now(), -30, "day"), "%Y-%m-%dT%H:%M:%SZ"))}'
+    sync: [last_updated]
+    request:
+      url: "{state.base_url}/orders"
+      parameters:
+        updated_since: "{state.updated_since}"
+    response:
+      records:
+        primary_key: ["id"]
+        update_key: "updated_at"
+      processors:
+        - expression: "record.updated_at"
+          output: "state.last_updated"
+          aggregation: "maximum"
+          if: "!is_null(record.updated_at)"
+        - expression: "record.total"
+          output: "state.total_sum"
+          aggregation: "minimum"
+        - expression: "record"
+          output: "state.first_record"
+          aggregation: "first"
+        - expression: "record"
+          output: "state.last_record"
+          aggregation: "last"
+        - expression: "record.tags"
+          output: "state.all_tags"
+          aggregation: "collect"
+
+  # Endpoint with +rules (append_rules)
+  fragile_endpoint:
+    description: "Endpoint that may 404"
+    request:
+      url: "{state.base_url}/fragile"
+    response:
+      +rules:
+        - action: "skip"
+          condition: "response.status == 404"
+          message: "Resource not found, skipping"
+
+  # Endpoint with +processors (append_processors)
+  enriched_endpoint:
+    description: "Endpoint with extra processors"
+    request:
+      url: "{state.base_url}/enriched"
+    response:
+      processors+:
+        - expression: "upper(record.name)"
+          output: "record.name_upper"
+
+  # Endpoint with response format
+  csv_endpoint:
+    description: "Endpoint that returns CSV"
+    request:
+      url: "{state.base_url}/export"
+    response:
+      format: csv
+      records:
+        primary_key: ["id"]
+
+  # Disabled endpoint
+  disabled_endpoint:
+    disabled: true
+    description: "This endpoint is not active"
+    request:
+      url: "{state.base_url}/disabled"
+
+  # Endpoint with conditional processors
+  conditional_endpoint:
+    description: "Endpoint with conditional processors"
+    state:
+      offset: 0
+    request:
+      url: "{state.base_url}/events"
+    response:
+      processors:
+        - expression: "record.id"
+          output: "queue.event_ids"
+          if: 'record.type == "important"'
+        - expression: "record.metadata"
+          output: "record.extra"
+          if: "!is_null(record.metadata)"
+
+  # Endpoint with setup and teardown
+  with_setup:
+    description: "Endpoint with its own setup/teardown"
+    request:
+      url: "{state.base_url}/with-setup"
+    setup:
+      - request:
+          url: "{state.base_url}/pre-check"
+        response:
+          processors:
+            - expression: "record.ready"
+              output: "state.is_ready"
+              aggregation: "last"
+    teardown:
+      - request:
+          url: "{state.base_url}/cleanup"
+          method: "POST"
+
+  # Endpoint with endpoint-level authentication override
+  custom_auth_endpoint:
+    description: "Uses different auth"
+    authentication:
+      type: "basic"
+      username: '{secrets.basic_user}'
+      password: '{secrets.basic_pass}'
+    request:
+      url: "{state.base_url}/secure"
+
+  # Endpoint with +setup and +teardown modifiers
+  modified_lifecycle:
+    description: "Appends to default setup/teardown"
+    request:
+      url: "{state.base_url}/lifecycle"
+    +setup:
+      - request:
+          url: "{state.base_url}/extra-pre"
+    setup+:
+      - request:
+          url: "{state.base_url}/extra-post-setup"
+    +teardown:
+      - request:
+          url: "{state.base_url}/extra-pre-teardown"
+    teardown+:
+      - request:
+          url: "{state.base_url}/extra-post-teardown"
+
+  # Endpoint with string iterate shorthand
+  simple_iterate:
+    description: "Iterate using string shorthand"
+    iterate:
+      over: "queue.event_ids"
+      into: "state.event_id"
+    request:
+      url: "{state.base_url}/events/{state.event_id}"
+    depends_on: ["conditional_endpoint"]
+
+  # Endpoint with all Rule fields
+  all_rules:
+    description: "Tests all rule actions and backoff types"
+    request:
+      url: "{state.base_url}/all-rules"
+    response:
+      rules:
+        - action: "retry"
+          condition: "response.status == 429"
+          max_attempts: 10
+          backoff: "constant"
+          backoff_base: 5
+          message: "Constant backoff retry"
+        - action: "retry"
+          condition: "response.status == 503"
+          max_attempts: 3
+          backoff: "linear"
+          backoff_base: 10
+          message: "Linear backoff retry"
+        - action: "retry"
+          condition: "response.status >= 500"
+          max_attempts: 5
+          backoff: "jitter"
+          backoff_base: 2
+          message: "Jitter backoff retry"
+
+dynamic_endpoints:
+  - setup:
+      - request:
+          url: "{state.base_url}/metadata/tables"
+        response:
+          records:
+            jmespath: "tables[]"
+          processors:
+            - expression: "record.name"
+              output: "state.table_names"
+              aggregation: "collect"
+
+      - iterate: "state.table_names"
+        into: "state.table_name"
+        request:
+          url: "{state.base_url}/metadata/schema/{state.table_name}"
+        response:
+          records:
+            jmespath: "columns[]"
+          processors:
+            - expression: "record"
+              output: "state.schemas"
+              aggregation: "collect"
+
+    iterate: "state.table_names"
+    into: "state.table_name"
+
+    endpoint:
+      name: "{state.table_name}"
+      description: "Dynamic data from {state.table_name}"
+      request:
+        url: "{state.base_url}/data/{state.table_name}"
+        parameters:
+          limit: "{state.limit}"
+      response:
+        records:
+          jmespath: "rows[]"
+          primary_key: ["id"]

@@ -468,6 +468,144 @@ pipeline.run()
 ```
 
 
+### Building API Specs with `ApiSpec`
+
+Build [API Spec](https://docs.slingdata.io/concepts/api-specs) YAML files programmatically with type checking and validation. API specs define how Sling extracts data from REST APIs.
+
+```python
+from sling.api_spec import (
+    ApiSpec, Endpoint, Request, Pagination, Response, Records,
+    Processor, Rule, Iterate, Call, DynamicEndpoint,
+    AuthType, HTTPMethod, RuleAction, AggregationType, BackoffType, ResponseFormat,
+)
+
+spec = ApiSpec(
+    name="My API",
+    description="Extract data from My API",
+    queues=["user_ids"],
+
+    defaults=Endpoint(
+        state={"base_url": "https://api.example.com/v1", "limit": 100},
+        request=Request(
+            headers={
+                "Authorization": 'Bearer {require(secrets.api_key, "api_key required")}',
+                "Accept": "application/json",
+            },
+            rate=5,
+            concurrency=3,
+        ),
+        response=Response(
+            records=Records(jmespath="data[]", primary_key=["id"]),
+            rules=[
+                Rule(
+                    action=RuleAction.RETRY,
+                    condition="response.status == 429",
+                    max_attempts=5,
+                    backoff=BackoffType.EXPONENTIAL,
+                    backoff_base=2,
+                ),
+            ],
+        ),
+        pagination=Pagination(
+            next_state={"offset": "{state.offset + state.limit}"},
+            stop_condition="length(response.records) < state.limit",
+        ),
+    ),
+
+    endpoints={
+        "users": Endpoint(
+            description="List all users",
+            state={"offset": 0},
+            request=Request(
+                url="{state.base_url}/users",
+                parameters={"limit": "{state.limit}", "offset": "{state.offset}"},
+            ),
+            response=Response(
+                processors=[
+                    Processor(expression="record.id", output="queue.user_ids"),
+                ],
+            ),
+        ),
+
+        "user_orders": Endpoint(
+            description="Get orders for each user",
+            iterate=Iterate(over="queue.user_ids", into="state.user_id", concurrency=5),
+            request=Request(url="{state.base_url}/users/{state.user_id}/orders"),
+            response=Response(
+                processors=[
+                    Processor(expression="state.user_id", output="record.user_id"),
+                ],
+            ),
+        ),
+
+        "metrics": Endpoint(
+            description="Daily metrics (incremental)",
+            state={
+                "offset": 0,
+                "since": '{coalesce(sync.last_date, date_format(date_add(now(), -30, "day"), "%Y-%m-%d"))}',
+            },
+            sync=["last_date"],
+            request=Request(
+                url="{state.base_url}/metrics",
+                parameters={"since": "{state.since}"},
+            ),
+            response=Response(
+                records=Records(primary_key=["id"], update_key="date"),
+                processors=[
+                    Processor(
+                        expression="record.date",
+                        output="state.last_date",
+                        aggregation=AggregationType.MAXIMUM,
+                    ),
+                ],
+            ),
+        ),
+    },
+)
+
+# Validate
+errors = spec.validate()
+assert errors == [], errors
+
+# Write to file
+spec.to_yaml_file("my_api.yaml")
+
+# Or get as string
+print(spec.to_yaml())
+print(spec.to_json())
+```
+
+Parse an existing spec:
+
+```python
+from sling.api_spec import ApiSpec, Endpoint, Request, Response, Records
+
+spec = ApiSpec.parse_file("path/to/spec.yaml")
+print(spec.name)
+print(list(spec.endpoints.keys()))
+
+# Modify and re-export
+spec.endpoints["new_endpoint"] = Endpoint(
+    request=Request(url="{state.base_url}/new"),
+    response=Response(records=Records(primary_key=["id"])),
+)
+spec.to_yaml_file("updated_spec.yaml")
+```
+
+Use `+rules`/`+processors` modifiers to append to defaults without replacing them:
+
+```python
+from sling.api_spec import Endpoint, Request, Response, Rule, RuleAction
+
+endpoint = Endpoint(
+    request=Request(url="{state.base_url}/fragile"),
+    response=Response(
+        # append_rules serializes as "rules+" in YAML, keeping default rules intact
+        append_rules=[Rule(action=RuleAction.SKIP, condition="response.status == 404")],
+    ),
+)
+```
+
 ## Testing
 
 ```bash
