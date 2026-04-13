@@ -503,8 +503,8 @@ def _exec_cmd(
         if is_package(pkg):
             env["SLING_PACKAGE"] = pkg
 
-    use_shell = os.environ.get('SLING_PYTHON_USE_SHELL', 'true').lower() != 'false'
-    cmd_args = cmd if use_shell else shlex.split(cmd)
+    use_shell = os.environ.get('SLING_PYTHON_USE_SHELL', 'false').lower() == 'true'
+    cmd_args = cmd if use_shell else shlex.split(cmd, posix=(os.name != 'nt'))
 
     with Popen(
         cmd_args, shell=use_shell, env=env, stdin=stdin, stdout=stdout, stderr=stderr

@@ -8,6 +8,12 @@
 
 Then you should be able to run `sling --help` from command line.
 
+## Environment Variables
+
+| Variable | Description | Default |
+|---|---|---|
+| `SLING_PYTHON_USE_SHELL` | Set to `true` to run the sling binary with `shell=True` in subprocess calls. | `false` |
+
 ## Running a Extract-Load Task
 
 ### CLI
