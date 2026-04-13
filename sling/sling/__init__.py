@@ -1,4 +1,4 @@
-import os, sys, tempfile, uuid, json, traceback, subprocess, csv, warnings, io, datetime
+import os, sys, tempfile, uuid, json, traceback, subprocess, csv, warnings, io, datetime, shlex
 from subprocess import PIPE, Popen, STDOUT
 from typing import Iterable, List, Union, Dict, Any, Optional, IO
 from json import JSONEncoder
@@ -503,8 +503,11 @@ def _exec_cmd(
         if is_package(pkg):
             env["SLING_PACKAGE"] = pkg
 
+    use_shell = os.environ.get('SLING_PYTHON_USE_SHELL', 'true').lower() != 'false'
+    cmd_args = cmd if use_shell else shlex.split(cmd)
+
     with Popen(
-        cmd, shell=True, env=env, stdin=stdin, stdout=stdout, stderr=stderr
+        cmd_args, shell=use_shell, env=env, stdin=stdin, stdout=stdout, stderr=stderr
     ) as proc:
         if stdout and stdout != STDOUT and proc.stdout:
             for line in proc.stdout:
