@@ -465,8 +465,7 @@ def _run(cmd: str, temp_file: str, return_output=False, env:dict=None, stdin=Non
 def cli(*args, return_output=False):
   "calls the sling binary with the provided args"
   args = args or sys.argv[1:]
-  escape = lambda a: a.replace('"', '\\"')
-  cmd = f'''{SLING_BIN} {" ".join([f'"{escape(a)}"' for a in args])}'''
+  cmd = [SLING_BIN, *args]
   lines = []
   try:
     stdout = PIPE if return_output else sys.stdout
@@ -504,7 +503,10 @@ def _exec_cmd(
             env["SLING_PACKAGE"] = pkg
 
     use_shell = os.environ.get('SLING_PYTHON_USE_SHELL', 'false').lower() == 'true'
-    cmd_args = cmd if use_shell else shlex.split(cmd, posix=(os.name != 'nt'))
+    if isinstance(cmd, list):
+        cmd_args = subprocess.list2cmdline(cmd) if use_shell else cmd
+    else:
+        cmd_args = cmd if use_shell else shlex.split(cmd, posix=(os.name != 'nt'))
 
     with Popen(
         cmd_args, shell=use_shell, env=env, stdin=stdin, stdout=stdout, stderr=stderr
