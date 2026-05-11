@@ -6,6 +6,7 @@ from .hooks import HookMap, Hook, hooks_to_dict
 from .options import SourceOptions, TargetOptions
 from .enum import Mode, Format, Compression, MergeStrategy
 from .bin import SLING_BIN
+from .connection import Connection, SlingConnectionError, TestResult, QueryResult
 
 # Try to import pyarrow, fallback to CSV if not available
 _ARROW_WARNING_SHOWN = False
@@ -193,8 +194,8 @@ class Replication:
 
   def __init__(
           self,
-          source: str=None,
-          target: str=None,
+          source: Union[str, 'Connection']=None,
+          target: Union[str, 'Connection']=None,
           defaults: Union[ReplicationStream, dict]={},
           hooks: Union[HookMap, dict] = None,
           streams: Dict[str, Union[ReplicationStream, dict]] = {},
@@ -202,8 +203,8 @@ class Replication:
           debug=False,
           file_path: str=None
   ):
-    self.source: str = source
-    self.target: str = target
+    self.source: str = source.name if isinstance(source, Connection) else source
+    self.target: str = target.name if isinstance(target, Connection) else target
 
     if isinstance(hooks, dict):
       hooks = HookMap(**hooks)
@@ -581,12 +582,12 @@ class Sling:
     def __init__(
         self,
         # Source parameters
-        src_conn: Optional[str] = None,
+        src_conn: Optional[Union[str, 'Connection']] = None,
         src_stream: Optional[str] = None,
         src_options: Optional[Union[SourceOptions, Dict[str, Any]]] = None,
         
         # Target parameters
-        tgt_conn: Optional[str] = None,
+        tgt_conn: Optional[Union[str, 'Connection']] = None,
         tgt_object: Optional[str] = None,
         tgt_options: Optional[Union[TargetOptions, Dict[str, Any]]] = None,
         
@@ -648,10 +649,10 @@ class Sling:
             input: Input data - can be a Python iterable (list of dicts), pandas DataFrame, or polars DataFrame
         """
         # Store all parameters
-        self.src_conn = src_conn
+        self.src_conn = src_conn.name if isinstance(src_conn, Connection) else src_conn
         self.src_stream = src_stream
         self.src_options = src_options
-        self.tgt_conn = tgt_conn
+        self.tgt_conn = tgt_conn.name if isinstance(tgt_conn, Connection) else tgt_conn
         self.tgt_object = tgt_object
         self.tgt_options = tgt_options
         self.select = select
