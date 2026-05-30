@@ -1,0 +1,33 @@
+# Packaging is still driven by setup.py (it carries the custom install/develop
+# commands that download the sling binary, and reads VERSION/README at build
+# time). This pyproject.toml adds a setuptools build-system declaration and a
+# uv-native `test` dependency group so CI and local dev can do:
+#
+#     uv sync --group test
+#     uv run python -m pytest tests/...
+#
+# Project metadata intentionally lives in setup.py to avoid duplicating the
+# dynamic VERSION/README logic and the custom cmdclass.
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sling"
+description = "Slings data from a source to a target"
+requires-python = ">=3.9"
+# version and readme are resolved dynamically by setup.py (VERSION / README.md).
+dynamic = ["version", "readme", "dependencies", "optional-dependencies", "scripts", "authors", "keywords", "classifiers"]
+
+# Dependencies needed only to run the test suite (PEP 735 dependency group).
+# Installed with `uv sync --group test`.
+[dependency-groups]
+test = [
+    "pytest",
+    "pytest-mock",
+    "pyarrow",
+    "pandas",
+    "polars",
+    "pyyaml",
+]

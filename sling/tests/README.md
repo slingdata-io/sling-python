@@ -46,7 +46,34 @@ The test suite includes:
 
 ## Running the Tests
 
-### Using pytest (Recommended)
+### Using uv (Recommended)
+
+The package ships a `pyproject.toml` with a `test` dependency group, so [uv](https://docs.astral.sh/uv/) can build the package and install all test dependencies (pytest, pytest-mock, pyarrow, pandas, polars) into an isolated `.venv`:
+
+```bash
+# From the package directory (sling-python/sling)
+uv sync --group test
+
+# Run the suite
+uv run python -m pytest tests/tests.py -v
+uv run python -m pytest tests/test_connection.py -v
+uv run python -m pytest tests/test_api_spec.py -v
+uv run python -m pytest tests/test_columns_type_casting.py -v
+
+# test_sling_class.py is run with Arrow on and off
+SLING_USE_ARROW=false uv run python -m pytest tests/test_sling_class.py -v
+SLING_USE_ARROW=true  uv run python -m pytest tests/test_sling_class.py -v
+```
+
+To test against a specific binary (e.g. a local or dev build) instead of the auto-downloaded release, set `SLING_BINARY`:
+
+```bash
+SLING_BINARY=/path/to/sling uv run python -m pytest tests/test_sling_class.py -v
+```
+
+This is the same flow the `test-cli` CI workflow uses against the latest dev build across Linux, Mac and Windows.
+
+### Using pytest directly
 
 ```bash
 # Install pytest if not already installed

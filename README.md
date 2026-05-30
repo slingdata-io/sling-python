@@ -614,7 +614,48 @@ endpoint = Endpoint(
 
 ## Testing
 
+The package lives in the inner `sling/` directory and ships a `pyproject.toml`
+with a `test` [dependency group](https://peps.python.org/pep-0735/). The
+recommended way to run the tests is with [uv](https://docs.astral.sh/uv/),
+which builds the package and installs all test dependencies (pytest,
+pytest-mock, pyarrow, pandas, polars) into an isolated `.venv`:
+
 ```bash
+cd sling
+
+# Install the package + test dependencies into .venv
+uv sync --group test
+
+# Run the suite
+uv run python -m pytest tests/tests.py -v
+uv run python -m pytest tests/test_connection.py -v
+uv run python -m pytest tests/test_api_spec.py -v
+uv run python -m pytest tests/test_columns_type_casting.py -v
+
+# test_sling_class.py is run with Arrow on and off
+SLING_USE_ARROW=false uv run python -m pytest tests/test_sling_class.py -v
+SLING_USE_ARROW=true  uv run python -m pytest tests/test_sling_class.py -v
+```
+
+To test against a specific `sling` binary instead of the auto-downloaded
+release (e.g. a local build or a dev build), point `SLING_BINARY` at it:
+
+```bash
+SLING_BINARY=/path/to/sling uv run python -m pytest tests/test_sling_class.py -v
+```
+
+> The CI workflow (`test-cli` in the `sling` repo) uses exactly this flow —
+> `uv sync --group test` + `uv run pytest` — against the latest dev build,
+> across Linux, Mac and Windows.
+
+### Without uv
+
+If you prefer plain `pip`/`pytest`:
+
+```bash
+pip install -e sling
+pip install pytest pytest-mock pyarrow pandas polars
+
 pytest sling/tests/tests.py -v
 pytest sling/tests/test_sling_class.py -v
 ```
