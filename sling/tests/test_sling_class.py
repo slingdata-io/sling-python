@@ -766,6 +766,11 @@ class TestSlingArrowStreaming:
 class TestExecCmd:
     """Tests for the internal command execution helper."""
 
+    @pytest.mark.skipif(
+        os.name == "nt",
+        reason="Relies on a POSIX bash; on Windows `bash` resolves to wsl.exe, "
+        "which has no installed distro on the CI runner.",
+    )
     def test_exec_cmd_includes_stdout_on_error(self):
         """When a subprocess prints an error to STDOUT and exits non-zero
         the helper should include that output in the raised exception.
