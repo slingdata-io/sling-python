@@ -812,7 +812,7 @@ class TestReplicationFilePath:
         )
 
         duck = tmp_path / "load.duck.db"
-        env = {"DUCKDB": f"duckdb://{duck.as_posix()}"}
+        env = {"DUCKDB": json.dumps({"type": "duckdb", "instance": duck.as_posix()})}
 
         from sling import Replication
 
