@@ -507,7 +507,13 @@ def _exec_cmd(
     if isinstance(cmd, list):
         cmd_args = subprocess.list2cmdline(cmd) if use_shell else cmd
     else:
-        cmd_args = cmd if use_shell else shlex.split(cmd, posix=(os.name != 'nt'))
+        if use_shell:
+            cmd_args = cmd
+        else:
+            # Strip the matched wrapping quotes the cmd
+            # string added so the binary receives a clean path argument.
+            cmd_args = shlex.split(cmd, posix=(os.name != 'nt'))
+            cmd_args = [a[1:-1] if len(a) >= 2 and a[0] == a[-1] and a[0] in '"\'' else a for a in cmd_args]
 
     with Popen(
         cmd_args, shell=use_shell, env=env, stdin=stdin, stdout=stdout, stderr=stderr
