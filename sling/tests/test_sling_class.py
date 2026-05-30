@@ -780,6 +780,41 @@ class TestExecCmd:
         assert 'fatal:' in str(excinfo.value)
 
 
+class TestReplicationFilePath:
+    """Running a replication from a YAML file goes through
+    `sling run -r "<path>"` (the path is wrapped in quotes). On Windows those
+    quotes used to reach the binary intact, so it failed with
+    `The filename, directory name, or volume label syntax is incorrect`.
+    Running an actual file-based replication exercises that exact path.
+    """
+
+    def test_run_replication_from_file(self, tmp_path):
+        # a small CSV source
+        csv_file = tmp_path / "people.csv"
+        csv_file.write_text("id,name\n1,alice\n2,bob\n")
+
+        # a csv_load.yaml replication, just like the issue describes
+        repl_file = tmp_path / "csv_load.yaml"
+        repl_file.write_text(
+            "source: LOCAL\n"
+            "target: DUCKDB\n"
+            "defaults:\n"
+            "  mode: full-refresh\n"
+            "  object: main.people\n"
+            "streams:\n"
+            f"  '{csv_file.as_posix()}':\n"
+            "    object: main.people\n"
+        )
+
+        duck = tmp_path / "load.duck.db"
+        env = {"DUCKDB": f"duckdb://{duck.as_posix()}"}
+
+        from sling import Replication
+
+        out = Replication(file_path=str(repl_file), env=env).run(return_output=True)
+        assert "execution succeeded" in out.lower(), out
+
+
 if __name__ == "__main__":
     # Run tests if executed directly
     pytest.main([__file__, "-v"]) 
