@@ -612,8 +612,8 @@ class TestSlingArrowStreaming:
 
         reader = sling.stream_arrow()
 
-        # Check if it's a RecordBatchStreamReader
-        assert isinstance(reader, pa.ipc.RecordBatchStreamReader)
+        # reader proxies the RecordBatchStreamReader interface (read_all/iter/schema)
+        assert hasattr(reader, "read_all") and hasattr(reader, "schema")
 
         table = reader.read_all()
         assert table.num_rows == len(sample_data)
@@ -717,6 +717,32 @@ class TestSlingArrowStreaming:
         for i, expected in enumerate([50000.0, 60000.00009, 5500023.01111, 65000.0002, 58000.04]):
             actual = float(pydict['salary'][i])
             assert abs(actual - expected) < 0.001, f"Salary mismatch at index {i}: {actual} != {expected}"
+
+    def test_stream_arrow_iterates_without_deadlock(self, temp_dir, sample_data):
+        """Regression: stream_arrow must hand back the reader before waiting on the
+        process, and iterating batch-by-batch must not deadlock on the stdout pipe.
+
+        Previously stream_arrow ran process.wait() in a finally before returning the
+        lazy reader: the subprocess blocked writing to a full stdout pipe while
+        process.wait() blocked on the process -> hang. Enough rows are written here
+        that the data exceeds a single OS pipe buffer.
+        """
+        input_file = os.path.join(temp_dir, "many.csv")
+        fieldnames = ["id", "name", "age", "city", "salary", "created_at"]
+        with open(input_file, "w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            base = sample_data[0]
+            for i in range(50000):
+                row = dict(base); row["id"] = i; writer.writerow(row)
+
+        reader = Sling(src_conn=f"file://{input_file}").stream_arrow(print_output=False)
+
+        # iterate (the path that deadlocked) rather than read_all
+        total = 0
+        for batch in reader:
+            total += batch.num_rows
+        assert total == 50000
 
     @pytest.mark.skipif(not HAS_POLARS, reason="Polars is not installed")
     def test_stream_arrow_from_polars_input(self, temp_dir, sample_data):
