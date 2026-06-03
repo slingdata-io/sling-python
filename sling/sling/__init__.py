@@ -559,14 +559,30 @@ class _ArrowProcessReader:
         self._on_close = on_close
         self._finalized = False
 
-    def _finalize(self):
+    def _finalize(self, consumed=True):
+        # consumed=False means the reader is abandoned/closed before exhaustion:
+        # the subprocess may be blocked writing to an undrained pipe, so wait()
+        # would re-deadlock — terminate instead and don't raise on its exit code.
         if self._finalized:
             return
         self._finalized = True
-        self._process.wait()
-        if self._on_close is not None:
-            self._on_close()
-        if self._process.returncode != 0:
+
+        try:
+            if consumed:
+                self._process.wait()
+            else:
+                if self._process.poll() is None:
+                    self._process.terminate()
+                try:
+                    self._process.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    self._process.kill()
+                    self._process.wait()
+        finally:
+            if self._on_close is not None:
+                self._on_close()
+
+        if consumed and self._process.returncode != 0:
             stderr_output = '\n'.join(self._stderr_lines) if self._stderr_lines else "No stderr output captured"
             raise SlingError(f"Sling command failed with return code: {self._process.returncode}\n{stderr_output}")
 
@@ -578,9 +594,14 @@ class _ArrowProcessReader:
             raise
 
     def __iter__(self):
-        for batch in self._reader:
-            yield batch
-        self._finalize()
+        consumed = False
+        try:
+            for batch in self._reader:
+                yield batch
+            consumed = True
+        finally:
+            # always reap, even on early break / exception
+            self._finalize(consumed=consumed)
 
     def read_all(self):
         table = self._reader.read_all()
@@ -595,7 +616,7 @@ class _ArrowProcessReader:
         try:
             self._reader.close()
         finally:
-            self._finalize()
+            self._finalize(consumed=False)
 
     def __enter__(self):
         return self
@@ -603,8 +624,17 @@ class _ArrowProcessReader:
     def __exit__(self, *exc):
         self.close()
 
+    def __del__(self):
+        # last-resort cleanup for a dropped reader; must never raise
+        try:
+            self._finalize(consumed=False)
+        except Exception:
+            pass
+
     def __getattr__(self, name):
-        # delegate anything else (e.g. RecordBatchStreamReader internals)
+        # guard private/dunder names to avoid recursion if _reader isn't set yet
+        if name.startswith('_'):
+            raise AttributeError(name)
         return getattr(self._reader, name)
 
 

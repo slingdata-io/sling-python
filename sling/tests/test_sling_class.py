@@ -744,6 +744,79 @@ class TestSlingArrowStreaming:
             total += batch.num_rows
         assert total == 50000
 
+    def _write_large_csv(self, temp_dir, sample_data, rows=50000, name="many.csv"):
+        """Write a CSV whose Arrow output exceeds one OS pipe buffer (~64KB)."""
+        input_file = os.path.join(temp_dir, name)
+        fieldnames = ["id", "name", "age", "city", "salary", "created_at"]
+        with open(input_file, "w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            base = sample_data[0]
+            for i in range(rows):
+                row = dict(base); row["id"] = i; writer.writerow(row)
+        return input_file
+
+    def _run_with_timeout(self, fn, seconds=30):
+        """Run fn in a daemon thread; fail the test if it doesn't finish in time.
+        A regression here deadlocks, so this turns a hang into a fast failure."""
+        import threading
+        result = {}
+        def target():
+            try:
+                result["value"] = fn()
+            except BaseException as e:  # noqa: BLE001
+                result["error"] = e
+        t = threading.Thread(target=target, daemon=True)
+        t.start(); t.join(seconds)
+        assert not t.is_alive(), "operation deadlocked (subprocess not reaped)"
+        if "error" in result:
+            raise result["error"]
+        return result.get("value")
+
+    def test_stream_arrow_early_break_reaps_process(self, temp_dir, sample_data):
+        """Abandoning the reader after a partial read must terminate the
+        subprocess, not leak/deadlock. __iter__'s finally finalizes on break."""
+        input_file = self._write_large_csv(temp_dir, sample_data)
+
+        reader = Sling(src_conn=f"file://{input_file}").stream_arrow(print_output=False)
+        def partial_read():
+            for _batch in reader:
+                break  # stop well before the stream is exhausted
+        self._run_with_timeout(partial_read)
+
+        assert reader._finalized is True
+        assert reader._process.poll() is not None
+
+    def test_stream_arrow_close_reaps_process(self, temp_dir, sample_data):
+        """close()/context-exit before exhaustion must terminate the subprocess
+        without blocking, and must not raise on the (expected) non-zero exit."""
+        input_file = self._write_large_csv(temp_dir, sample_data)
+
+        reader = Sling(src_conn=f"file://{input_file}").stream_arrow(print_output=False)
+        def read_one_then_close():
+            with reader:
+                reader.read_next_batch()  # read one batch, then exit early
+        self._run_with_timeout(read_one_then_close)
+
+        assert reader._finalized is True
+        assert reader._process.poll() is not None
+
+    def test_stream_arrow_nonzero_exit_raises_on_full_read(self, temp_dir):
+        """A failing source surfaces a SlingError when the stream is consumed."""
+        with pytest.raises(SlingError):
+            reader = Sling(
+                src_conn=f"file://{os.path.join(temp_dir, 'does_not_exist.csv')}"
+            ).stream_arrow(print_output=False)
+            reader.read_all()
+
+    def test_arrow_reader_getattr_no_recursion(self):
+        """__getattr__ must not recurse into a missing _reader (e.g. before
+        __init__ runs) — private/dunder lookups raise AttributeError instead."""
+        from sling import _ArrowProcessReader
+        inst = _ArrowProcessReader.__new__(_ArrowProcessReader)  # _reader unset
+        with pytest.raises(AttributeError):
+            inst._reader  # would infinite-recurse without the guard
+
     @pytest.mark.skipif(not HAS_POLARS, reason="Polars is not installed")
     def test_stream_arrow_from_polars_input(self, temp_dir, sample_data):
         """Test writing polars DataFrame to a file and streaming it back as Arrow"""
