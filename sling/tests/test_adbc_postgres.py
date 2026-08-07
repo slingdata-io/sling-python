@@ -36,6 +36,35 @@ ADBC_CONN_NAME = "ADBC_POSTGRES_TEST"
 PG_CONN_NAME = os.environ.get("ADBC_TEST_PG_CONN", "POSTGRES")
 
 
+def _extract_url(val):
+    """Pull a Postgres URL out of a connection definition.
+
+    A connection may be a bare URL or a YAML/JSON mapping with a `url` key
+    alongside other properties (`schema`, etc). CI supplies the mapping form.
+    """
+    if not isinstance(val, str):
+        return None
+
+    val = val.strip()
+    if val.startswith(("postgres://", "postgresql://")):
+        return os.path.expandvars(val)
+
+    try:
+        import yaml
+    except ImportError:
+        return None
+    try:
+        parsed = yaml.safe_load(val)
+    except yaml.YAMLError:
+        return None
+
+    if isinstance(parsed, dict):
+        url = parsed.get("url")
+        if isinstance(url, str) and url.startswith(("postgres://", "postgresql://")):
+            return os.path.expandvars(url)
+    return None
+
+
 def _pg_url():
     """Resolve the Postgres URL for the POSTGRES connection.
 
@@ -43,9 +72,9 @@ def _pg_url():
     (how CI supplies it), then ~/.sling/env.yaml (how a dev machine has it).
     """
     for key in ("ADBC_TEST_PG_URL", PG_CONN_NAME):
-        val = os.environ.get(key)
-        if val:
-            return val
+        url = _extract_url(os.environ.get(key))
+        if url:
+            return url
 
     env_yaml = os.path.join(
         os.environ.get("SLING_HOME_DIR") or os.path.join(
@@ -66,12 +95,9 @@ def _pg_url():
     conn = conns.get(PG_CONN_NAME) or conns.get(PG_CONN_NAME.lower())
     if not isinstance(conn, dict):
         return None
-    url = conn.get("url")
     # Only a plain URL is usable here; component-style configs would need the
     # CLI's own resolution, which this test intentionally does not reimplement.
-    if isinstance(url, str) and url.startswith(("postgres://", "postgresql://")):
-        return os.path.expandvars(url)
-    return None
+    return _extract_url(conn.get("url"))
 
 
 def _adbc_conn_spec():
@@ -123,6 +149,15 @@ _DRIVER_MISSING_MARKERS = (
 )
 
 
+def _required():
+    """Whether a missing prerequisite should fail instead of skip.
+
+    CI sets ADBC_TESTS_REQUIRED so an environment gap surfaces as a failure —
+    otherwise a broken ADBC stack would quietly report a green build.
+    """
+    return os.environ.get("ADBC_TESTS_REQUIRED", "").lower() in ("1", "true", "yes")
+
+
 def _preflight():
     """(ok, skip_reason). skip_reason is None when the tests should run."""
     env = _adbc_env()
@@ -170,11 +205,16 @@ def adbc_env():
     Exports the connection into os.environ for the duration of the module so
     Connection(), which inherits the ambient environment, can resolve it too.
     """
+    def unavailable(reason):
+        if _required():
+            pytest.fail(f"{reason} (ADBC_TESTS_REQUIRED is set)")
+        pytest.skip(reason)
+
     if not os.path.exists(SLING_BIN):
-        pytest.skip("sling binary not available")
+        unavailable("sling binary not available")
     spec = _adbc_conn_spec()
     if spec is None:
-        pytest.skip(
+        unavailable(
             f"no Postgres URL: set ${PG_CONN_NAME} or $ADBC_TEST_PG_URL"
         )
 
@@ -183,7 +223,7 @@ def adbc_env():
     try:
         ok, reason = _preflight()
         if not ok:
-            pytest.skip(reason)
+            unavailable(reason)
         yield os.environ.copy()
     finally:
         if prior is None:
