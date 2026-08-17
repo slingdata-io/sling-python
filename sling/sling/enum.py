@@ -34,6 +34,9 @@ class Format(Enum):
   PARQUET: Apache Parquet columnar format
   AVRO: Apache Avro binary format
   SAS: SAS7BDAT file format
+  GEOJSON: GeoJSON format
+  ICEBERG: Apache Iceberg table format
+  DELTA: Delta Lake table format
   RAW: Raw/binary file format
   """
   CSV = "csv"
@@ -45,6 +48,9 @@ class Format(Enum):
   ARROW = "arrow"
   AVRO = "avro"
   SAS = "sas7bdat"
+  GEOJSON = "geojson"
+  ICEBERG = "iceberg"
+  DELTA = "delta"
   RAW = "raw"
 
 
@@ -97,3 +103,52 @@ class SlotLevel(Enum):
   """
   STREAM = "stream"
   SHARED = "shared"
+
+
+class ColumnCasing(Enum):
+  """
+  Enum representing the available Sling column casing options.
+
+  SOURCE: Keep the casing of the source column name. The default.
+  NORMALIZE: Normalize to the target, and keep mixed case columns as they are
+  TARGET: Change the casing to the target database casing. Files become lower case.
+  SNAKE: Change the casing to snake case for the target. Files become lower case.
+  UPPER: Change the casing to upper case
+  LOWER: Change the casing to lower case
+  CAMEL: Change the casing to camel case
+  """
+  SOURCE = "source"
+  NORMALIZE = "normalize"
+  TARGET = "target"
+  SNAKE = "snake"
+  UPPER = "upper"
+  LOWER = "lower"
+  CAMEL = "camel"
+
+
+class Encoding(Enum):
+  """
+  Enum representing the available Sling character encodings.
+  """
+  UTF8 = "utf8"
+  UTF8_BOM = "utf8_bom"
+  UTF16 = "utf16"
+  LATIN1 = "latin1"
+  LATIN5 = "latin5"
+  LATIN9 = "latin9"
+  WINDOWS1250 = "windows1250"
+  WINDOWS1252 = "windows1252"
+
+
+class IsolationLevel(Enum):
+  """
+  Enum representing the available transaction isolation levels for the target.
+  """
+  DEFAULT = "default"
+  READ_UNCOMMITTED = "read_uncommitted"
+  READ_COMMITTED = "read_committed"
+  WRITE_COMMITTED = "write_committed"
+  REPEATABLE_READ = "repeatable_read"
+  SNAPSHOT = "snapshot"
+  SERIALIZABLE = "serializable"
+  LINEARIZABLE = "linearizable"

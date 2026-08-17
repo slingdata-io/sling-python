@@ -1,6 +1,6 @@
 # Hook classes for Sling Python package
 # These classes are used for building replication configurations that get passed to the Go binary
-from typing import List, Union, Dict
+from typing import Any, List, Union, Dict
 from .enum import Mode
 
 # Hook Base Class and Hook Types
@@ -40,13 +40,19 @@ class HookQuery(Hook):
                query: str,
                transient: bool = None,
                into: str = None,
+               transaction: Any = None,
+               operation: str = None,
+               params: Dict[str, Any] = None,
                **kwargs) -> None:
     super().__init__(**kwargs)
     self.connection = connection
     self.query = query
     self.transient = transient
     self.into = into
-  
+    self.transaction = transaction
+    self.operation = operation
+    self.params = params
+
   def get_type(self) -> str:
     return "query"
 
@@ -56,15 +62,23 @@ class HookHTTP(Hook):
   def __init__(self,
                url: str,
                method: str = None,
-               payload: str = None,
+               payload: Any = None,
                headers: Dict[str, str] = None,
+               timeout: int = None,
+               auth: Dict[str, Any] = None,
+               write_to: str = None,
+               proxy: str = None,
                **kwargs) -> None:
     super().__init__(**kwargs)
     self.url = url
     self.method = method
     self.payload = payload
     self.headers = headers or {}
-  
+    self.timeout = timeout
+    self.auth = auth
+    self.write_to = write_to
+    self.proxy = proxy
+
   def get_type(self) -> str:
     return "http"
 
@@ -74,13 +88,17 @@ class HookCheck(Hook):
   def __init__(self,
                check: str,
                failure_message: str = None,
-               vars: Dict[str, any] = None,
+               success_goto: str = None,
+               success_message: str = None,
+               vars: Dict[str, Any] = None,
                **kwargs) -> None:
     super().__init__(**kwargs)
     self.check = check
     self.failure_message = failure_message
+    self.success_goto = success_goto
+    self.success_message = success_message
     self.vars = vars or {}
-  
+
   def get_type(self) -> str:
     return "check"
 
@@ -125,20 +143,20 @@ class HookCopy(Hook):
   def __init__(self,
                from_: str,  # 'from' is a reserved keyword
                to: str,
-               recursive: bool = None,
+               single_file: bool = None,
                **kwargs) -> None:
     super().__init__(**kwargs)
     self.from_ = from_
     self.to = to
-    self.recursive = recursive
-  
+    self.single_file = single_file
+
   def to_dict(self) -> dict:
     result = super().to_dict()
     if hasattr(self, 'from_'):
       result['from'] = self.from_
       del result['from_']
     return result
-  
+
   def get_type(self) -> str:
     return "copy"
 
@@ -164,31 +182,33 @@ class HookLog(Hook):
   """Hook for logging messages"""
   
   def __init__(self,
-               message: str,
+               message: str = None,
                level: str = None,
+               log: str = None,
                **kwargs) -> None:
     super().__init__(**kwargs)
     self.message = message
     self.level = level
-  
+    self.log = log
+
   def get_type(self) -> str:
     return "log"
 
 class HookInspect(Hook):
   """Hook for inspecting file metadata"""
-  
+
   def __init__(self,
                location: str = None,
                connection: str = None,
-               path: str = None,
+               object: str = None,
                recursive: bool = None,
                **kwargs) -> None:
     super().__init__(**kwargs)
     self.location = location
     self.connection = connection
-    self.path = path
+    self.object = object
     self.recursive = recursive
-  
+
   def get_type(self) -> str:
     return "inspect"
 
@@ -201,6 +221,7 @@ class HookList(Hook):
                path: str = None,
                recursive: bool = None,
                only: str = None,
+               into: str = None,
                **kwargs) -> None:
     super().__init__(**kwargs)
     self.location = location
@@ -208,7 +229,8 @@ class HookList(Hook):
     self.path = path
     self.recursive = recursive
     self.only = only
-  
+    self.into = into
+
   def get_type(self) -> str:
     return "list"
 
@@ -216,12 +238,13 @@ class HookReplication(Hook):
   """Hook for running another replication"""
   
   def __init__(self,
-               path: str,
+               path: str = None,
                working_dir: str = None,
                range_param: str = None,  # 'range' is a reserved keyword
                mode: Union[Mode, str] = None,
                streams: List[str] = None,
-               env: Dict[str, any] = None,
+               env: Dict[str, Any] = None,
+               replication: Any = None,
                **kwargs) -> None:
     super().__init__(**kwargs)
     self.path = path
@@ -230,6 +253,7 @@ class HookReplication(Hook):
     self.mode = mode
     self.streams = streams or []
     self.env = env or {}
+    self.replication = replication
   
   def to_dict(self) -> dict:
     result = super().to_dict()
@@ -245,11 +269,13 @@ class HookCommand(Hook):
   """Hook for running shell commands"""
   
   def __init__(self,
-               command: List[str],
+               command: Union[str, List[str]] = None,
                print_output: bool = None,  # 'print' is a reserved keyword
                capture: bool = None,
                working_dir: str = None,
                env: Dict[str, str] = None,
+               timeout: int = None,
+               ssh_conn: str = None,
                **kwargs) -> None:
     super().__init__(**kwargs)
     self.command = command or []
@@ -257,6 +283,8 @@ class HookCommand(Hook):
     self.capture = capture
     self.working_dir = working_dir
     self.env = env or {}
+    self.timeout = timeout
+    self.ssh_conn = ssh_conn
   
   def to_dict(self) -> dict:
     result = super().to_dict()
@@ -273,13 +301,17 @@ class HookGroup(Hook):
   
   def __init__(self,
                steps: List[Union[Hook, dict]],
-               loop: any = None,
+               loop: Any = None,
                env: Dict[str, str] = None,
+               params: Dict[str, Any] = None,
+               concurrency: int = None,
                **kwargs) -> None:
     super().__init__(**kwargs)
     self.steps = steps or []
     self.loop = loop
     self.env = env or {}
+    self.params = params
+    self.concurrency = concurrency
   
   def to_dict(self) -> dict:
     result = super().to_dict()
@@ -296,21 +328,94 @@ class HookGroup(Hook):
   def get_type(self) -> str:
     return "group"
 
-class HookStore(Hook):
-  """Hook for storing values in memory"""
-  
+class HookSet(Hook):
+  """Hook for setting values in the runtime state"""
+
   def __init__(self,
-               key: str,
-               value: any = None,
+               key: str = None,
+               value: Any = None,
+               map: Dict[str, Any] = None,
                delete: bool = None,
                **kwargs) -> None:
     super().__init__(**kwargs)
     self.key = key
     self.value = value
+    self.map = map
     self.delete = delete
-  
+
+  def get_type(self) -> str:
+    return "set"
+
+class HookStore(HookSet):
+  """
+  Hook for storing values in memory.
+
+  This is the legacy name of `HookSet`. Sling reads both.
+  """
+
   def get_type(self) -> str:
     return "store"
+
+class HookRoutine(Hook):
+  """Hook for calling a named routine"""
+
+  def __init__(self,
+               routine: str,
+               params: Dict[str, Any] = None,
+               env: Dict[str, str] = None,
+               **kwargs) -> None:
+    super().__init__(**kwargs)
+    self.routine = routine
+    self.params = params
+    self.env = env
+
+  def get_type(self) -> str:
+    return "routine"
+
+class HookBuild(Hook):
+  """Hook for running a build project (for example dbt)"""
+
+  def __init__(self,
+               build: str,
+               target: str = None,
+               select: Union[str, List[str]] = None,
+               exclude: Union[str, List[str]] = None,
+               vars: Dict[str, Any] = None,
+               fail_fast: bool = None,
+               full_refresh: bool = None,
+               threads: int = None,
+               schema: str = None,
+               prod: bool = None,
+               no_seeds: bool = None,
+               range_param: str = None,  # 'range' is a reserved keyword
+               recursive: bool = None,
+               test: bool = None,
+               **kwargs) -> None:
+    super().__init__(**kwargs)
+    self.build = build
+    self.target = target
+    self.select = select
+    self.exclude = exclude
+    self.vars = vars
+    self.fail_fast = fail_fast
+    self.full_refresh = full_refresh
+    self.threads = threads
+    self.schema = schema
+    self.prod = prod
+    self.no_seeds = no_seeds
+    self.range_param = range_param
+    self.recursive = recursive
+    self.test = test
+
+  def to_dict(self) -> dict:
+    result = super().to_dict()
+    if hasattr(self, 'range_param') and self.range_param is not None:
+      result['range'] = self.range_param
+      del result['range_param']
+    return result
+
+  def get_type(self) -> str:
+    return "build"
 
 # Helper function to convert hooks to dictionaries
 def hooks_to_dict(hooks: List[Union[Hook, dict]]) -> List[dict]:
@@ -380,3 +485,6 @@ StepReplication = HookReplication
 StepCommand = HookCommand
 StepGroup = HookGroup
 StepStore = HookStore
+StepSet = HookSet
+StepRoutine = HookRoutine
+StepBuild = HookBuild

@@ -5,7 +5,8 @@ import tempfile
 from unittest.mock import patch, MagicMock, mock_open
 from sling import (
     Replication, ReplicationStream, Pipeline, Task, Source, Target,
-    Mode, TaskOptions, cli, Sling, MergeStrategy, SlotLevel
+    Mode, TaskOptions, cli, Sling, MergeStrategy, SlotLevel, Format,
+    ColumnCasing, Encoding, IsolationLevel
 )
 from sling.options import SourceOptions, TargetOptions, CDCOptions
 from sling.hooks import *
@@ -1227,3 +1228,158 @@ class TestCDCOptions:
     def test_sling_class_without_cdc_options(self):
         sling = Sling(src_conn="MY_PG", src_stream="t", tgt_conn="MY_SF", tgt_object="t")
         assert "--cdc-options" not in sling._build_command()
+
+
+class TestOptionParity:
+    """Test the options and enums which mirror the sling-cli config"""
+
+    def test_source_options_new_fields(self):
+        opts = SourceOptions(
+            skip_lines=2,
+            escape="\\",
+            quote='"',
+            jq=".data[]",
+            chunk_count=4,
+            chunk_expr="id % 4",
+            encoding=Encoding.UTF8_BOM,
+        )
+        assert opts.skip_lines == 2
+        assert opts.escape == "\\"
+        assert opts.quote == '"'
+        assert opts.jq == ".data[]"
+        assert opts.chunk_count == 4
+        assert opts.chunk_expr == "id % 4"
+        assert opts.encoding == Encoding.UTF8_BOM
+
+    def test_source_options_no_trim_space(self):
+        """trim_space is a transform, not a source option"""
+        with pytest.raises(TypeError):
+            SourceOptions(trim_space=True)
+
+    def test_target_options_new_fields(self):
+        opts = TargetOptions(
+            batch_max_duration="30s",
+            encoding=Encoding.UTF8,
+            direct_insert=True,
+            isolation_level=IsolationLevel.READ_COMMITTED,
+            column_casing=ColumnCasing.SNAKE,
+        )
+        assert opts.batch_max_duration == "30s"
+        assert opts.encoding == Encoding.UTF8
+        assert opts.direct_insert is True
+        assert opts.isolation_level == IsolationLevel.READ_COMMITTED
+        assert opts.column_casing == ColumnCasing.SNAKE
+
+    def test_format_new_values(self):
+        assert Format.ICEBERG.value == "iceberg"
+        assert Format.DELTA.value == "delta"
+        assert Format.GEOJSON.value == "geojson"
+
+    def test_column_casing_values(self):
+        assert ColumnCasing.SOURCE.value == "source"
+        assert ColumnCasing.SNAKE.value == "snake"
+        assert ColumnCasing.CAMEL.value == "camel"
+
+    def test_isolation_level_values(self):
+        assert IsolationLevel.READ_COMMITTED.value == "read_committed"
+        assert IsolationLevel.SERIALIZABLE.value == "serializable"
+
+    def test_replication_stream_single(self):
+        stream = ReplicationStream(object="out.csv", single=True)
+        assert stream.single is True
+
+    def test_source_options_serialization(self):
+        sling = Sling(
+            src_stream="file:///tmp/f.csv",
+            src_options=SourceOptions(skip_lines=2, quote='"'),
+        )
+        cmd = sling._build_command()
+        payload = json.loads(cmd[cmd.index("--src-options") + 1])
+        assert payload["skip_lines"] == 2
+        assert payload["quote"] == '"'
+
+
+class TestHookParity:
+    """Test the hook classes which mirror the sling-cli hook types"""
+
+    def test_new_hook_types(self):
+        assert HookSet(key="k", value=1).get_type() == "set"
+        assert HookRoutine(routine="r").get_type() == "routine"
+        assert HookBuild(build="./dbt").get_type() == "build"
+
+    def test_hook_store_is_legacy_alias_of_set(self):
+        """store and set share a Go struct; store keeps the legacy type string"""
+        assert issubclass(HookStore, HookSet)
+        assert HookStore(key="k", value=1).get_type() == "store"
+
+    def test_hook_set_map_form(self):
+        d = HookSet(map={"a": 1, "b": 2}).to_dict()
+        assert d == {"type": "set", "map": {"a": 1, "b": 2}}
+
+    def test_hook_query_new_fields(self):
+        d = HookQuery(
+            connection="pg", query="select 1",
+            transaction="tx1", operation="merge", params={"a": 1},
+        ).to_dict()
+        assert d["transaction"] == "tx1"
+        assert d["operation"] == "merge"
+        assert d["params"] == {"a": 1}
+
+    def test_hook_http_new_fields(self):
+        d = HookHTTP(
+            url="https://x.com", timeout=30, auth={"type": "bearer"},
+            write_to="out.json", proxy="http://proxy:8080",
+        ).to_dict()
+        assert d["timeout"] == 30
+        assert d["auth"] == {"type": "bearer"}
+        assert d["write_to"] == "out.json"
+        assert d["proxy"] == "http://proxy:8080"
+
+    def test_hook_check_success_fields(self):
+        d = HookCheck(check="1 == 1", success_goto="step_x", success_message="ok").to_dict()
+        assert d["success_goto"] == "step_x"
+        assert d["success_message"] == "ok"
+
+    def test_hook_command_new_fields(self):
+        d = HookCommand(command="echo hi", timeout=30, ssh_conn="my_ssh").to_dict()
+        assert d["timeout"] == 30
+        assert d["ssh_conn"] == "my_ssh"
+        assert d["command"] == "echo hi"
+
+    def test_hook_group_new_fields(self):
+        d = HookGroup(steps=[HookLog(log="x")], params={"p": 1}, concurrency=3).to_dict()
+        assert d["params"] == {"p": 1}
+        assert d["concurrency"] == 3
+
+    def test_hook_list_into(self):
+        assert HookList(location="s3/path", into="files").to_dict()["into"] == "files"
+
+    def test_hook_log_log_field(self):
+        assert HookLog(log="hello").to_dict()["log"] == "hello"
+
+    def test_hook_inspect_uses_object_not_path(self):
+        """Go's HookInspect has `object`; `path` was a no-op"""
+        d = HookInspect(location="file:///tmp/f.csv", object="obj").to_dict()
+        assert d["object"] == "obj"
+        assert "path" not in d
+
+    def test_hook_copy_uses_single_file_not_recursive(self):
+        """Go's HookCopy has `single_file`; `recursive` was a no-op"""
+        d = HookCopy(from_="a", to="b", single_file=True).to_dict()
+        assert d["single_file"] is True
+        assert d["from"] == "a"
+        assert "recursive" not in d
+
+    def test_hook_replication_inline(self):
+        d = HookReplication(replication={"source": "pg", "target": "sf"}).to_dict()
+        assert d["replication"] == {"source": "pg", "target": "sf"}
+
+    def test_hook_build_range_rename(self):
+        d = HookBuild(build="./dbt", range_param="2024-01-01,2024-02-01").to_dict()
+        assert d["range"] == "2024-01-01,2024-02-01"
+        assert "range_param" not in d
+
+    def test_step_aliases_exist(self):
+        assert StepSet is HookSet
+        assert StepRoutine is HookRoutine
+        assert StepBuild is HookBuild

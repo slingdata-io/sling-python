@@ -4,7 +4,10 @@ from typing import Iterable, List, Union, Dict, Any, Optional, IO
 from json import JSONEncoder
 from .hooks import HookMap, Hook, hooks_to_dict
 from .options import SourceOptions, TargetOptions, CDCOptions
-from .enum import Mode, Format, Compression, MergeStrategy, SlotLevel
+from .enum import (
+    Mode, Format, Compression, MergeStrategy, SlotLevel, ColumnCasing,
+    Encoding, IsolationLevel,
+)
 from .bin import SLING_BIN
 from .connection import Connection, SlingConnectionError, TestResult, QueryResult
 
@@ -103,6 +106,7 @@ class ReplicationStream:
   `target_options` represents the target options to use.
   `change_capture_options` represents the options for change-capture mode.
   Sling merges these options over the options of the replication `defaults`.
+  `single` keeps a wildcard stream as one stream, and writes to one file.
   """
   id: str
   description: str
@@ -120,6 +124,7 @@ class ReplicationStream:
   change_capture_options: CDCOptions
   schedule: str
   disabled: bool
+  single: bool
   hooks: HookMap
 
   def __init__(
@@ -140,6 +145,7 @@ class ReplicationStream:
           change_capture_options: Union[CDCOptions, dict] = None,
           schedule: str = None,
           disabled: bool = None,
+          single: bool = None,
           transforms = None,
           columns = None,
           hooks: Union[HookMap, dict] = None,
@@ -156,6 +162,7 @@ class ReplicationStream:
     self.sql = sql
     self.tags = tags
     self.schedule = schedule
+    self.single = single
     self.transforms = transforms
     self.columns = columns
 
