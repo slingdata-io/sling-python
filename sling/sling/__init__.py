@@ -3,8 +3,8 @@ from subprocess import PIPE, Popen, STDOUT
 from typing import Iterable, List, Union, Dict, Any, Optional, IO
 from json import JSONEncoder
 from .hooks import HookMap, Hook, hooks_to_dict
-from .options import SourceOptions, TargetOptions
-from .enum import Mode, Format, Compression, MergeStrategy
+from .options import SourceOptions, TargetOptions, CDCOptions
+from .enum import Mode, Format, Compression, MergeStrategy, SlotLevel
 from .bin import SLING_BIN
 from .connection import Connection, SlingConnectionError, TestResult, QueryResult
 
@@ -94,6 +94,16 @@ class Target:
     self.options = options
 
 class ReplicationStream:
+  """
+  ReplicationStream represents one stream of a sling replication. See
+  https://docs.slingdata.io/concepts/replication for details.
+
+  `mode` represents the load mode. Use the `Mode` enum or a string.
+  `source_options` represents the source options to use.
+  `target_options` represents the target options to use.
+  `change_capture_options` represents the options for change-capture mode.
+  Sling merges these options over the options of the replication `defaults`.
+  """
   id: str
   description: str
   mode: Union[Mode, str]
@@ -107,6 +117,7 @@ class ReplicationStream:
   tags: List[str]
   source_options: SourceOptions
   target_options: TargetOptions
+  change_capture_options: CDCOptions
   schedule: str
   disabled: bool
   hooks: HookMap
@@ -126,6 +137,7 @@ class ReplicationStream:
           tags: List[str] = [],
           source_options: Union[SourceOptions, dict]={},
           target_options: Union[TargetOptions, dict]={},
+          change_capture_options: Union[CDCOptions, dict] = None,
           schedule: str = None,
           disabled: bool = None,
           transforms = None,
@@ -158,6 +170,10 @@ class ReplicationStream:
     if isinstance(target_options, dict):
       target_options = TargetOptions(**target_options)
     self.target_options = target_options
+
+    if isinstance(change_capture_options, dict):
+      change_capture_options = CDCOptions(**change_capture_options)
+    self.change_capture_options = change_capture_options
 
     self.disabled = disabled
 
@@ -674,6 +690,13 @@ class Sling:
         sling = Sling(src_conn="snowflake", src_stream="public.users")
         for record in sling.stream():
             print(record)
+
+        # Change data capture (CDC). The source and the target must be databases.
+        sling = Sling(src_conn="postgres", src_stream="public.users",
+                      tgt_conn="snowflake", tgt_object="raw.users",
+                      mode=Mode.CHANGE_CAPTURE,
+                      cdc_options=CDCOptions(soft_delete=True, run_max_duration="5m"))
+        sling.run()
             
         # Stream with target object (just runs normally)
         sling = Sling(src_conn="snowflake.", src_stream="select * from users", tgt_conn="file://", tgt_object="output.csv")
@@ -707,7 +730,8 @@ class Sling:
         range: Optional[str] = None,
         primary_key: Optional[Union[str, List[str]]] = None,
         update_key: Optional[str] = None,
-        
+        cdc_options: Optional[Union[CDCOptions, Dict[str, Any]]] = None,
+
         # Environment and config
         env: Optional[Union[str, Dict[str, Any]]] = None,
         replication: Optional[str] = None,
@@ -736,12 +760,14 @@ class Sling:
             transforms: Transform configuration (JSON/YAML string, dict, or list)
             columns: Column type casting (JSON/YAML string or dict)
             streams: Specific streams for replication (comma-separated string or list)
-            mode: Load mode (Mode enum or string: full-refresh, incremental, etc.)
+            mode: Load mode (Mode enum or string: full-refresh, incremental,
+                truncate, snapshot, backfill, definition-only, change-capture)
             limit: Maximum number of rows
             offset: Number of rows to offset
             range: Range for backfill mode
             primary_key: Primary key for incremental (comma-separated string or list)
             update_key: Update key for incremental
+            cdc_options: Change-capture options (CDCOptions instance or dict)
             env: Environment variables (JSON/YAML string or dict)
             replication: Replication config file path
             pipeline: Pipeline config file path
@@ -768,6 +794,7 @@ class Sling:
         self.range = range
         self.primary_key = primary_key
         self.update_key = update_key
+        self.cdc_options = cdc_options
         self.env = env
         self.replication = replication
         self.pipeline = pipeline
@@ -885,6 +912,8 @@ class Sling:
             cmd.extend(["--primary-key", self._format_list(self.primary_key)])
         if self.update_key:
             cmd.extend(["--update-key", self.update_key])
+        if self.cdc_options:
+            cmd.extend(["--cdc-options", self._format_option(self.cdc_options)])
         if self.debug:
             cmd.append("-d")
         if self.trace:

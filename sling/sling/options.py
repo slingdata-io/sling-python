@@ -1,5 +1,5 @@
 from typing import Union
-from .enum import Format, Compression, MergeStrategy
+from .enum import Format, Compression, MergeStrategy, SlotLevel
 
 class SourceOptions:
   trim_space: bool
@@ -140,3 +140,64 @@ class TargetOptions:
     self.table_tmp = table_tmp
     self.pre_sql = pre_sql
     self.post_sql = post_sql
+
+
+class CDCOptions:
+  """
+  Options for change-capture mode. See https://docs.slingdata.io/concepts/replication for details.
+
+  Sling applies its own default for each option you do not set.
+
+  `snapshot_start` sets where the initial load starts. Use "now" or "beginning".
+  `snapshot_chunk_size` sets the row count of each initial load chunk.
+  `snapshot_run_duration` sets the maximum duration of the initial load, for example "30m".
+  `run_max_events` sets the maximum event count of one run.
+  `run_max_duration` sets the maximum duration of one run, for example "10m".
+  `soft_delete` marks deleted rows in the target, instead of a delete.
+  `retry_attempts` sets the retry count after an error.
+  `retry_delay` sets the delay between retries, for example "5s".
+  `replay_from` sets the source log position to replay from.
+  `slot_level` sets the replication slot scope. Use "stream" or "shared".
+  `change_feed` names a server-side CDC object. This is a PostgreSQL publication,
+  a SQL Server capture instance, or an Oracle GoldenGate data stream.
+  """
+  snapshot_start: str
+  snapshot_chunk_size: int
+  snapshot_run_duration: str
+  run_max_events: int
+  run_max_duration: str
+  soft_delete: bool
+  retry_attempts: int
+  retry_delay: str
+  replay_from: str
+  slot_level: Union[SlotLevel, str]
+  change_feed: str
+
+  def __init__(self,
+              snapshot_start: str = None,
+              snapshot_chunk_size: int = None,
+              snapshot_run_duration: str = None,
+              run_max_events: int = None,
+              run_max_duration: str = None,
+              soft_delete: bool = None,
+              retry_attempts: int = None,
+              retry_delay: str = None,
+              replay_from: str = None,
+              slot_level: Union[SlotLevel, str] = None,
+              change_feed: str = None,
+              ) -> None:
+    self.snapshot_start = snapshot_start
+    self.snapshot_chunk_size = snapshot_chunk_size
+    self.snapshot_run_duration = snapshot_run_duration
+    self.run_max_events = run_max_events
+    self.run_max_duration = run_max_duration
+    self.soft_delete = soft_delete
+    self.retry_attempts = retry_attempts
+    self.retry_delay = retry_delay
+    self.replay_from = replay_from
+    self.slot_level = slot_level
+    self.change_feed = change_feed
+
+  def to_dict(self) -> dict:
+    """Returns the options which are set. Unset options keep the Sling default."""
+    return {k: v for k, v in self.__dict__.items() if v is not None}

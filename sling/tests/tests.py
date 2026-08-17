@@ -4,10 +4,10 @@ import json
 import tempfile
 from unittest.mock import patch, MagicMock, mock_open
 from sling import (
-    Replication, ReplicationStream, Pipeline, Task, Source, Target, 
-    Mode, TaskOptions, cli
+    Replication, ReplicationStream, Pipeline, Task, Source, Target,
+    Mode, TaskOptions, cli, Sling, MergeStrategy, SlotLevel
 )
-from sling.options import SourceOptions, TargetOptions
+from sling.options import SourceOptions, TargetOptions, CDCOptions
 from sling.hooks import *
 
 class TestMode:
@@ -15,10 +15,12 @@ class TestMode:
     
     def test_mode_values(self):
         assert Mode.FULL_REFRESH.value == "full-refresh"
-        assert Mode.INCREMENTAL.value == "incremental" 
+        assert Mode.INCREMENTAL.value == "incremental"
         assert Mode.TRUNCATE.value == "truncate"
         assert Mode.SNAPSHOT.value == "snapshot"
         assert Mode.BACKFILL.value == "backfill"
+        assert Mode.DEFINITION_ONLY.value == "definition-only"
+        assert Mode.CHANGE_CAPTURE.value == "change-capture"
 
 class TestSource:
     """Test the Source class"""
@@ -1085,3 +1087,143 @@ def test_run_methods(mock_exec):
     )
     output = pipeline.run(return_output=True)
     assert "testing now" in output
+
+class TestCDCOptions:
+    """Test the CDCOptions class and change-capture mode"""
+
+    def test_cdc_options_initialization(self):
+        opts = CDCOptions(
+            snapshot_start="beginning",
+            snapshot_chunk_size=50000,
+            snapshot_run_duration="30m",
+            run_max_events=2000,
+            run_max_duration="5m",
+            soft_delete=True,
+            retry_attempts=5,
+            retry_delay="10s",
+            replay_from="0/1A2B3C4D",
+            slot_level=SlotLevel.SHARED,
+            change_feed="my_publication",
+        )
+
+        assert opts.snapshot_start == "beginning"
+        assert opts.snapshot_chunk_size == 50000
+        assert opts.snapshot_run_duration == "30m"
+        assert opts.run_max_events == 2000
+        assert opts.run_max_duration == "5m"
+        assert opts.soft_delete is True
+        assert opts.retry_attempts == 5
+        assert opts.retry_delay == "10s"
+        assert opts.replay_from == "0/1A2B3C4D"
+        assert opts.slot_level == SlotLevel.SHARED
+        assert opts.change_feed == "my_publication"
+
+    def test_cdc_options_defaults_are_unset(self):
+        """Unset options must not be sent, so Sling applies its own defaults"""
+        opts = CDCOptions()
+        assert opts.to_dict() == {}
+
+    def test_cdc_options_to_dict_keeps_only_set_fields(self):
+        opts = CDCOptions(soft_delete=False, run_max_events=100)
+        assert opts.to_dict() == {"soft_delete": False, "run_max_events": 100}
+
+    def test_slot_level_values(self):
+        assert SlotLevel.STREAM.value == "stream"
+        assert SlotLevel.SHARED.value == "shared"
+
+    def test_merge_strategy_cdc_values(self):
+        assert MergeStrategy.CHANGE_CAPTURE.value == "change_capture"
+        assert MergeStrategy.CHANGE_CAPTURE_SOFT.value == "change_capture_soft"
+        assert MergeStrategy.HISTORY_INSERT.value == "history_insert"
+
+    def test_replication_stream_with_cdc_options(self):
+        stream = ReplicationStream(
+            mode=Mode.CHANGE_CAPTURE,
+            object="main.users",
+            change_capture_options={"soft_delete": True, "slot_level": "shared"},
+        )
+
+        assert isinstance(stream.change_capture_options, CDCOptions)
+        assert stream.change_capture_options.soft_delete is True
+        assert stream.change_capture_options.slot_level == "shared"
+
+    def test_replication_stream_without_cdc_options(self):
+        """Streams which do not use CDC must keep the attribute empty"""
+        stream = ReplicationStream(mode=Mode.FULL_REFRESH)
+        assert stream.change_capture_options is None
+
+    def test_replication_cdc_json_serialization(self):
+        replication = Replication(
+            source="MY_PG",
+            target="MY_SF",
+            defaults=ReplicationStream(
+                mode=Mode.CHANGE_CAPTURE,
+                change_capture_options=CDCOptions(
+                    slot_level=SlotLevel.SHARED, run_max_events=2000
+                ),
+            ),
+            streams={
+                "public.users": ReplicationStream(
+                    object="raw.users",
+                    change_capture_options=CDCOptions(soft_delete=True),
+                ),
+                "public.orders": ReplicationStream(object="raw.orders"),
+            },
+        )
+
+        replication._prep_cmd()
+        with open(replication.temp_file) as file:
+            config = json.load(file)
+
+        # defaults carry the CDC options, with the enum as its string value
+        defaults = config["defaults"]
+        assert defaults["mode"] == "change-capture"
+        assert defaults["change_capture_options"] == {
+            "run_max_events": 2000,
+            "slot_level": "shared",
+        }
+
+        # a stream sets only its own override; Sling merges the defaults
+        users = config["streams"]["public.users"]
+        assert users["change_capture_options"] == {"soft_delete": True}
+
+        # a stream without CDC options stays null, which Sling reads as unset
+        assert config["streams"]["public.orders"]["change_capture_options"] is None
+
+        os.remove(replication.temp_file)
+
+    def test_sling_class_cdc_options_command(self):
+        sling = Sling(
+            src_conn="MY_PG",
+            src_stream="public.users",
+            tgt_conn="MY_SF",
+            tgt_object="raw.users",
+            mode=Mode.CHANGE_CAPTURE,
+            cdc_options=CDCOptions(soft_delete=True, run_max_duration="5m"),
+        )
+        cmd = sling._build_command()
+
+        assert "-m" in cmd
+        assert cmd[cmd.index("-m") + 1] == "change-capture"
+
+        assert "--cdc-options" in cmd
+        payload = json.loads(cmd[cmd.index("--cdc-options") + 1])
+        assert payload == {"soft_delete": True, "run_max_duration": "5m"}
+
+    def test_sling_class_cdc_options_dict(self):
+        sling = Sling(
+            src_conn="MY_PG",
+            src_stream="public.users",
+            tgt_conn="MY_SF",
+            tgt_object="raw.users",
+            mode="change-capture",
+            cdc_options={"snapshot_start": "beginning", "retry_attempts": 5},
+        )
+        cmd = sling._build_command()
+
+        payload = json.loads(cmd[cmd.index("--cdc-options") + 1])
+        assert payload == {"snapshot_start": "beginning", "retry_attempts": 5}
+
+    def test_sling_class_without_cdc_options(self):
+        sling = Sling(src_conn="MY_PG", src_stream="t", tgt_conn="MY_SF", tgt_object="t")
+        assert "--cdc-options" not in sling._build_command()

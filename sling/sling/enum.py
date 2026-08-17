@@ -4,18 +4,22 @@ from enum import Enum
 class Mode(Enum):
   """
   Enum representing the available Sling execution modes.
-  
+
   FULL_REFRESH: Drop and recreate the target table/object
   INCREMENTAL: Update existing records and/or insert new ones
   TRUNCATE: Truncate the target table before loading
   SNAPSHOT: Create a snapshot of the source data
   BACKFILL: Load historical data based on a date range
+  DEFINITION_ONLY: Create the target table/object definition, without data
+  CHANGE_CAPTURE: Stream row changes from the source database log (CDC)
   """
   FULL_REFRESH = "full-refresh"
   INCREMENTAL = "incremental"
   TRUNCATE = "truncate"
   SNAPSHOT = "snapshot"
   BACKFILL = "backfill"
+  DEFINITION_ONLY = "definition-only"
+  CHANGE_CAPTURE = "change-capture"
 
 
 class Format(Enum):
@@ -71,8 +75,25 @@ class MergeStrategy(Enum):
   DELETE_INSERT: Delete matching rows, then insert all (safe and reliable)
   INSERT: Insert only, skip existing (append-only scenarios)
   UPDATE: Update only, skip new (update existing records only)
+  HISTORY_INSERT: Insert each version of a row, to keep a history
+  CHANGE_CAPTURE: Apply CDC events, with hard deletes (change-capture mode)
+  CHANGE_CAPTURE_SOFT: Apply CDC events, with soft deletes (change-capture mode)
   """
   UPDATE_INSERT = "update_insert"
   DELETE_INSERT = "delete_insert"
   INSERT = "insert"
   UPDATE = "update"
+  HISTORY_INSERT = "history_insert"
+  CHANGE_CAPTURE = "change_capture"
+  CHANGE_CAPTURE_SOFT = "change_capture_soft"
+
+
+class SlotLevel(Enum):
+  """
+  Enum representing how the replication slot/reader is scoped in change-capture mode.
+
+  STREAM: Use one replication slot for each stream
+  SHARED: Use one replication slot for all streams of the source connection
+  """
+  STREAM = "stream"
+  SHARED = "shared"
