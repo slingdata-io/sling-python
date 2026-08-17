@@ -134,18 +134,18 @@ def _run_sling(args, env=None, timeout=180):
     )
 
 
-# A missing/unloadable ADBC driver is an environment gap -> skip. Anything else
-# (notably a panic while registering ADBC symbols) is a real failure -> run the
-# tests so they report it. Skipping on every error would hide sling-cli#783,
-# which is the regression this module exists to catch.
+# A driver that was never installed is an environment gap -> skip. Anything else
+# is a real failure -> run the tests so they report it. Skipping on every error
+# would hide sling-cli#783, the regression this module exists to catch.
+#
+# Keep these narrow and specific. Broad substrings ("no such file",
+# "adbc_driver_manager") also match a driver manager that IS present but fails to
+# load — e.g. a GLIBCXX version mismatch — which must fail loudly, not skip.
 _DRIVER_MISSING_MARKERS = (
     "dlopen_failed",
     "dlopen failed",
     "could not load driver",
-    "no such file",
-    "cannot open shared object",
     "image not found",
-    "adbc_driver_manager",
 )
 
 
@@ -180,12 +180,14 @@ def _preflight():
     except (subprocess.TimeoutExpired, OSError) as e:
         return False, f"ADBC connect timed out ({e.__class__.__name__})"
 
-    combined = (r.stdout + r.stderr).lower()
+    raw = r.stdout + r.stderr
+    combined = raw.lower()
     if r.returncode != 0 or "error" in combined:
         if any(m in combined for m in _DRIVER_MISSING_MARKERS):
+            # include the real output — a bare "not installed" hides why
             return False, (
                 "ADBC Postgres driver not installed "
-                "(install with `dbc install postgresql`)"
+                f"(install with `dbc install postgresql`); sling said: {raw.strip()}"
             )
         # Driver is present but ADBC still failed — let the tests run and fail.
         return True, None
