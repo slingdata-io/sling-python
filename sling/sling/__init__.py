@@ -743,11 +743,13 @@ class Sling:
         env: Optional[Union[str, Dict[str, Any]]] = None,
         replication: Optional[str] = None,
         pipeline: Optional[str] = None,
+        directory: Optional[str] = None,
         config: Optional[str] = None,
         
         # Logging
         debug: bool = False,
         trace: bool = False,
+        home_dir: Optional[str] = None,
         
         # Python-specific options
         input: Optional[Any] = None,
@@ -778,9 +780,11 @@ class Sling:
             env: Environment variables (JSON/YAML string or dict)
             replication: Replication config file path
             pipeline: Pipeline config file path
+            directory: Directory path to run nested replications/pipelines
             config: Task config string or file (deprecated)
             debug: Enable debug logging
             trace: Enable trace logging
+            home_dir: Sling home directory override
             input: Input data - can be a Python iterable (list of dicts), pandas DataFrame, or polars DataFrame
         """
         # Store all parameters
@@ -805,9 +809,11 @@ class Sling:
         self.env = env
         self.replication = replication
         self.pipeline = pipeline
+        self.directory = directory
         self.config = config
         self.debug = debug
         self.trace = trace
+        self.home_dir = home_dir
         self.input = input
         self.stdout = False
         
@@ -837,6 +843,8 @@ class Sling:
             cmd.extend(["-r", self.replication])
         if self.pipeline:
             cmd.extend(["-p", self.pipeline])
+        if self.directory:
+            cmd.extend(["--directory", self.directory])
         if self.config:
             cmd.extend(["-c", self.config])
         
@@ -925,6 +933,8 @@ class Sling:
             cmd.append("-d")
         if self.trace:
             cmd.append("--trace")
+        if self.home_dir:
+            cmd.extend(["--home-dir", self.home_dir])
             
         return cmd
     
