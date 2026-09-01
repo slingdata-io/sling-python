@@ -10,6 +10,10 @@ from .enum import (
 )
 from .bin import SLING_BIN
 from .connection import Connection, SlingConnectionError, TestResult, QueryResult
+from .platform import (
+    Platform, SlingPlatformError,
+    PlatformJobs, PlatformExecs, PlatformFiles, PlatformConnections,
+)
 
 # Try to import pyarrow, fallback to CSV if not available
 _ARROW_WARNING_SHOWN = False

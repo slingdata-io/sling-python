@@ -474,6 +474,64 @@ pipeline.run()
 ```
 
 
+### Using the `Platform` class
+
+Manage a hosted [Sling Platform](https://docs.slingdata.io/sling-platform/platform) project — jobs, executions, files, and connections — via `sling platform ...`. Authenticates with `SLING_PROJECT_TOKEN` (Settings → Tokens in the UI). Requires sling-cli 1.6+.
+
+```python
+from sling import Platform
+
+p = Platform()                            # uses SLING_PROJECT_TOKEN from the env
+p = Platform(token="...", cwd="/path/to/proj")
+
+p.status()                                # project overview
+p.sync()                                  # two-way file sync (skips confirm)
+p.init()                                  # write .sling.json in cwd
+
+# Jobs
+jobs = p.jobs.list(job_type="replication", name="users")
+job = p.jobs.get("job_abc123")            # full JSON — round-trip before save
+job["schedules"] = ["0 4 * * *"]
+p.jobs.save(job=job)                      # full replace, not a patch
+exec_id = p.jobs.trigger("job_abc123", wait=True, streams=["public.users"])
+p.jobs.activate("job_abc123")
+p.jobs.deactivate("job_abc123")
+p.jobs.delete("job_abc123")               # no confirmation prompt
+
+# Executions
+runs = p.execs.list(job_name="users", status="error", since="7d", limit=5)
+p.execs.status(exec_id)
+p.execs.log(exec_id, status="error")      # list of task/step records
+p.execs.cancel(exec_id)
+
+# Files (replications, pipelines, specs)
+p.files.list()
+body = p.files.get("replications/users.yaml")
+p.files.save("replications/users.yaml", body=body)
+p.files.rename("replications/old.yaml", "replications/new.yaml")
+p.files.delete("replications/users.yaml")
+
+# Project-scoped connections (not local env.yaml)
+p.connections.list()
+result = p.connections.test("POSTGRES")   # TestResult(success, error)
+```
+
+Create a job from scratch (omit `id` so the server assigns one):
+
+```python
+job = p.jobs.save(job={
+    "name": "Users daily",
+    "type": "replication",
+    "file_name": "replications/users.yaml",
+    "active": True,
+    "schedules": ["0 4 * * *"],
+    "timezone": "America/New_York",
+    "config": {"mode": "incremental", "threads": 2},
+})
+print(job["id"])
+```
+
+
 ### Building API Specs with `ApiSpec`
 
 Build [API Spec](https://docs.slingdata.io/concepts/api-specs) YAML files programmatically with type checking and validation. API specs define how Sling extracts data from REST APIs.
@@ -629,6 +687,7 @@ uv sync --group test
 # Run the suite
 uv run python -m pytest tests/tests.py -v
 uv run python -m pytest tests/test_connection.py -v
+uv run python -m pytest tests/test_platform.py -v
 uv run python -m pytest tests/test_api_spec.py -v
 uv run python -m pytest tests/test_columns_type_casting.py -v
 

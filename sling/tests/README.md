@@ -6,6 +6,11 @@ This directory contains comprehensive tests for the Sling Python package to ensu
 
 The test suite includes:
 
+### Platform Tests (`test_platform.py`)
+- **TestPlatformAPI**: Constructor, token/cwd env, error handling
+- **TestPlatformJobs / Execs / Files / Connections**: CLI argument construction and JSON parsing (mocked binary)
+- **TestPlatformLive**: Optional read-only calls against a real project (`SLING_PROJECT_TOKEN` + sling-cli 1.6+)
+
 ### Core Class Tests
 - **TestMode**: Tests the Mode enum values (FULL_REFRESH, INCREMENTAL, etc.)
 - **TestSource**: Tests the Source class initialization and options handling
@@ -57,6 +62,7 @@ uv sync --group test
 # Run the suite
 uv run python -m pytest tests/tests.py -v
 uv run python -m pytest tests/test_connection.py -v
+uv run python -m pytest tests/test_platform.py -v
 uv run python -m pytest tests/test_api_spec.py -v
 uv run python -m pytest tests/test_columns_type_casting.py -v
 
