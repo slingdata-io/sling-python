@@ -19,22 +19,23 @@ import pytest
 
 from sling.bin import SLING_BIN
 
-def _has_build_command() -> bool:
-    """`sling build` arrived after 1.5.14, so older pinned binaries skip."""
+def _has_build_subcommands() -> bool:
+    """`sling build` got run/compile subcommands after 1.6.0; older binaries skip."""
     if not os.path.exists(SLING_BIN):
         return False
     # An older binary exits 0 but falls back to top-level help, so check the
-    # text for the build command's own usage line.
+    # text for the build command's own usage line and its subcommands.
     proc = subprocess.run(
         [SLING_BIN, "build", "--help"],
         stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False,
     )
     output = (proc.stdout + proc.stderr).decode("utf-8", errors="replace")
-    return "build - " in output
+    return "build - " in output and "build [run|list|test|compile]" in output
 
 
 requires_build = pytest.mark.skipif(
-    not _has_build_command(), reason="Sling binary has no `build` command"
+    not _has_build_subcommands(),
+    reason="Sling binary has no `build` subcommands",
 )
 
 MULTI_STATEMENT_SQL = """create temporary table tmp_parser as select 1 as a;
@@ -55,9 +56,9 @@ def _make_project(tmp_path, models: dict):
     return tmp_path
 
 
-def _run_build(project, *args):
+def _run_build(project, subcommand, *args):
     return subprocess.run(
-        [SLING_BIN, "build", str(project), *args],
+        [SLING_BIN, "build", subcommand, str(project), *args],
         stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False,
     )
 
@@ -76,7 +77,7 @@ class TestSQLParserFFI:
         # Loads the polyglot-sql library and calls polyglot_parse over FFI.
         # This is the call that panicked on Windows.
         project = _make_project(tmp_path, {"multi": MULTI_STATEMENT_SQL})
-        proc = _run_build(project, "--compile")
+        proc = _run_build(project, "compile")
         output = _assert_no_panic(proc)
         assert proc.returncode == 0, output
 
@@ -85,7 +86,7 @@ class TestSQLParserFFI:
         # silently falling back. --json reports only the model query, so the
         # DDL landing outside `sql` is the proof the split happened.
         project = _make_project(tmp_path, {"multi": MULTI_STATEMENT_SQL})
-        proc = _run_build(project, "--compile", "--json")
+        proc = _run_build(project, "compile", "--json")
         output = _assert_no_panic(proc)
         assert proc.returncode == 0, output
 
@@ -98,9 +99,9 @@ class TestSQLParserFFI:
         assert "create" not in sql and "drop" not in sql
 
     def test_multi_statement_split_shows_pre_and_post(self, tmp_path):
-        # The human-readable --compile output lists the split statements.
+        # The human-readable compile output lists the split statements.
         project = _make_project(tmp_path, {"multi": MULTI_STATEMENT_SQL})
-        proc = _run_build(project, "--compile")
+        proc = _run_build(project, "compile")
         output = _assert_no_panic(proc).lower()
         assert proc.returncode == 0, output
         assert "pre_statements" in output and "create temporary table" in output
@@ -109,7 +110,7 @@ class TestSQLParserFFI:
     def test_multi_statement_model_executes(self, tmp_path):
         # Full run, not just compile: pre/post statements execute against DuckDB.
         project = _make_project(tmp_path, {"multi": MULTI_STATEMENT_SQL})
-        proc = _run_build(project)
+        proc = _run_build(project, "run")
         output = _assert_no_panic(proc)
         assert proc.returncode == 0, output
         assert "0 Failures" in output, output
@@ -118,7 +119,7 @@ class TestSQLParserFFI:
         # Fast path: no semicolon, so the library never loads. Guards the
         # branch that kept this bug hidden.
         project = _make_project(tmp_path, {"single": SINGLE_STATEMENT_SQL})
-        proc = _run_build(project, "--compile")
+        proc = _run_build(project, "compile")
         output = _assert_no_panic(proc)
         assert proc.returncode == 0, output
 
@@ -129,6 +130,6 @@ class TestSQLParserFFI:
             tmp_path,
             {"single": SINGLE_STATEMENT_SQL, "multi": MULTI_STATEMENT_SQL},
         )
-        proc = _run_build(project, "-s", "single", "--compile")
+        proc = _run_build(project, "compile", "-s", "single")
         output = _assert_no_panic(proc)
         assert proc.returncode == 0, output

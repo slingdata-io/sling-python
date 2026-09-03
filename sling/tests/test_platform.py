@@ -201,6 +201,7 @@ class TestPlatformExecs:
         )
         assert rows == [{"id": "exec_1"}]
         cmd = _cmd(run)
+        assert cmd[:4] == [SLING_BIN, "platform", "executions", "list"]
         assert cmd[cmd.index("--job-id") + 1] == "job_abc"
         assert cmd[cmd.index("--status") + 1] == "error"
         assert cmd[cmd.index("--since") + 1] == "7d"
@@ -222,14 +223,14 @@ class TestPlatformExecs:
         rec = {"id": "exec_1", "status": "success"}
         run.return_value = _proc(stdout=json.dumps(rec, indent=2))
         assert Platform().execs.status("exec_1") == rec
-        assert _cmd(run) == [SLING_BIN, "platform", "execs", "status", "exec_1"]
+        assert _cmd(run) == [SLING_BIN, "platform", "executions", "status", "exec_1"]
 
     def test_log(self, run):
         run.return_value = _proc(stdout='[{"stream_name":"users","output":"ok"}]')
         rows = Platform().execs.log("exec_1", task="users", status="error", job_type="replication")
         assert rows[0]["stream_name"] == "users"
         cmd = _cmd(run)
-        assert cmd[:5] == [SLING_BIN, "platform", "execs", "log", "exec_1"]
+        assert cmd[:5] == [SLING_BIN, "platform", "executions", "log", "exec_1"]
         assert "--no-color" in cmd
         assert cmd[cmd.index("--task") + 1] == "users"
         assert cmd[cmd.index("--status") + 1] == "error"
@@ -239,7 +240,7 @@ class TestPlatformExecs:
     def test_cancel(self, run):
         run.return_value = _proc(stderr="Cancelled")
         Platform().execs.cancel("exec_1")
-        assert _cmd(run) == [SLING_BIN, "platform", "execs", "cancel", "exec_1"]
+        assert _cmd(run) == [SLING_BIN, "platform", "executions", "cancel", "exec_1"]
 
 
 class TestPlatformFiles:

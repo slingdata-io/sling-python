@@ -377,10 +377,12 @@ class HookBuild(Hook):
 
   def __init__(self,
                build: str,
+               command: str = None,  # run | test | compile | list; empty = run
                target: str = None,
                select: Union[str, List[str]] = None,
                exclude: Union[str, List[str]] = None,
                vars: Dict[str, Any] = None,
+               env: Dict[str, Any] = None,
                fail_fast: bool = None,
                full_refresh: bool = None,
                threads: int = None,
@@ -389,14 +391,16 @@ class HookBuild(Hook):
                no_seeds: bool = None,
                range_param: str = None,  # 'range' is a reserved keyword
                recursive: bool = None,
-               test: bool = None,
+               test: bool = None,  # alias for command="test"
                **kwargs) -> None:
     super().__init__(**kwargs)
     self.build = build
+    self.command = command
     self.target = target
     self.select = select
     self.exclude = exclude
     self.vars = vars
+    self.env = env
     self.fail_fast = fail_fast
     self.full_refresh = full_refresh
     self.threads = threads

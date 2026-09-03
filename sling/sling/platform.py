@@ -239,7 +239,7 @@ class PlatformJobs:
 
 
 class PlatformExecs:
-    """`sling platform execs` — list/status/log/cancel."""
+    """`sling platform executions` — list/status/log/cancel."""
 
     def __init__(self, platform: Platform):
         self._p = platform
@@ -259,7 +259,7 @@ class PlatformExecs:
             raise ValueError("provide only one of job_id= or job_name=")
         if limit is not None and (not isinstance(limit, int) or limit < 0):
             raise ValueError(f"limit must be a non-negative int or None, got {limit!r}")
-        args = ["execs", "list"]
+        args = ["executions", "list"]
         _opt(args, "--job-id", job_id)
         _opt(args, "--job-name", job_name)
         _opt(args, "--status", status)
@@ -274,10 +274,10 @@ class PlatformExecs:
         """Per-task / per-step state of one execution."""
         if not exec_id:
             raise ValueError("exec_id is required")
-        stdout = self._p._run_ok(["execs", "status", exec_id])
-        data = _loads_json(stdout, "", ["execs", "status", exec_id])
+        stdout = self._p._run_ok(["executions", "status", exec_id])
+        data = _loads_json(stdout, "", ["executions", "status", exec_id])
         if not isinstance(data, dict):
-            raise SlingPlatformError(f"unexpected execs status response: {data!r}")
+            raise SlingPlatformError(f"unexpected executions status response: {data!r}")
         return data
 
     def log(
@@ -295,7 +295,7 @@ class PlatformExecs:
         """
         if not exec_id:
             raise ValueError("exec_id is required")
-        args = ["execs", "log", exec_id, "--no-color"]
+        args = ["executions", "log", exec_id, "--no-color"]
         _opt(args, "--task", task)
         _opt(args, "--status", status)
         _opt(args, "--type", job_type)
@@ -306,7 +306,7 @@ class PlatformExecs:
         """Cancel a running execution."""
         if not exec_id:
             raise ValueError("exec_id is required")
-        self._p._run_ok(["execs", "cancel", exec_id])
+        self._p._run_ok(["executions", "cancel", exec_id])
 
 
 class PlatformFiles:

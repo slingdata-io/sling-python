@@ -1379,6 +1379,19 @@ class TestHookParity:
         assert d["range"] == "2024-01-01,2024-02-01"
         assert "range_param" not in d
 
+    def test_hook_build_command(self):
+        # command selects the build subcommand: run | test | compile | list
+        d = HookBuild(build="./models", command="compile").to_dict()
+        assert d["command"] == "compile"
+
+    def test_hook_build_command_omitted(self):
+        # empty command means run, so it must not serialize
+        assert "command" not in HookBuild(build="./models").to_dict()
+
+    def test_hook_build_env(self):
+        d = HookBuild(build="./models", env={"SLING_STATE": "s3://bucket"}).to_dict()
+        assert d["env"] == {"SLING_STATE": "s3://bucket"}
+
     def test_step_aliases_exist(self):
         assert StepSet is HookSet
         assert StepRoutine is HookRoutine
