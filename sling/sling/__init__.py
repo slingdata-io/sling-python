@@ -748,6 +748,7 @@ class Sling:
         replication: Optional[str] = None,
         pipeline: Optional[str] = None,
         directory: Optional[str] = None,
+        job: Optional[str] = None,
         config: Optional[str] = None,
         
         # Logging
@@ -785,6 +786,7 @@ class Sling:
             replication: Replication config file path
             pipeline: Pipeline config file path
             directory: Directory path to run nested replications/pipelines
+            job: Job key from sling_project.yml to run locally
             config: Task config string or file (deprecated)
             debug: Enable debug logging
             trace: Enable trace logging
@@ -814,6 +816,7 @@ class Sling:
         self.replication = replication
         self.pipeline = pipeline
         self.directory = directory
+        self.job = job
         self.config = config
         self.debug = debug
         self.trace = trace
@@ -849,6 +852,8 @@ class Sling:
             cmd.extend(["-p", self.pipeline])
         if self.directory:
             cmd.extend(["--directory", self.directory])
+        if self.job:
+            cmd.extend(["--job", self.job])
         if self.config:
             cmd.extend(["-c", self.config])
         
