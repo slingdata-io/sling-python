@@ -756,6 +756,9 @@ class Sling:
         trace: bool = False,
         home_dir: Optional[str] = None,
         
+        # Output
+        stdout: bool = False,
+
         # Python-specific options
         input: Optional[Any] = None,
     ):
@@ -791,6 +794,7 @@ class Sling:
             debug: Enable debug logging
             trace: Enable trace logging
             home_dir: Sling home directory override
+            stdout: Write stream output to stdout (maps to --stdout)
             input: Input data - can be a Python iterable (list of dicts), pandas DataFrame, or polars DataFrame
         """
         # Store all parameters
@@ -821,8 +825,8 @@ class Sling:
         self.debug = debug
         self.trace = trace
         self.home_dir = home_dir
+        self.stdout = stdout
         self.input = input
-        self.stdout = False
         
     def _format_option(self, value: Union[SourceOptions, TargetOptions, Dict[str, Any], List[Any]]) -> str:
         """Convert option value to JSON string if needed"""
