@@ -64,10 +64,20 @@ def _run_build(project, subcommand, *args):
 
 
 def _assert_no_panic(proc):
-    """The parser failure mode is a Go panic, not a non-zero exit alone."""
+    """The parser failure mode is a Go panic, not a non-zero exit alone.
+
+    A GLIBC/GLIBCXX version mismatch (e.g. Ubuntu 20.04 vs a prebuilt
+    polyglot-sql that needs GLIBC_2.32) is an environment gap, not a
+    parser regression — skip instead of fail.
+    """
     output = (proc.stdout + proc.stderr).decode("utf-8", errors="replace")
     assert "panic:" not in output, f"binary panicked:\n{output}"
     assert "purego" not in output, f"purego FFI failure:\n{output}"
+    # Matches GLIBC_2.xx and GLIBCXX_3.xx
+    if proc.returncode != 0 and "GLIBC" in output.upper():
+        pytest.skip(
+            "native library needs a newer glibc than this system provides"
+        )
     return output
 
 
