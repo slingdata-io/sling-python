@@ -11,6 +11,11 @@ The test suite includes:
 - **TestPlatformJobs / Execs / Files / Connections**: CLI argument construction and JSON parsing (mocked binary)
 - **TestPlatformLive**: Optional read-only calls against a real project (`SLING_PROJECT_TOKEN` + sling-cli 1.6+)
 
+### Build Operator Tests (`test_build.py`)
+- **TestCommand**: CLI argument construction per subcommand (mock binary)
+- **TestParsing**: `--json` payload parsing, failure handling, capability gating
+- **TestBuildLive**: Runs a throwaway `sling_build.yml` project against an env-defined DuckDB connection (needs sling-cli 1.6+ with `build run --json`)
+
 ### Core Class Tests
 - **TestMode**: Tests the Mode enum values (FULL_REFRESH, INCREMENTAL, etc.)
 - **TestSource**: Tests the Source class initialization and options handling
@@ -63,6 +68,7 @@ uv sync --group test
 uv run python -m pytest tests/tests.py -v
 uv run python -m pytest tests/test_connection.py -v
 uv run python -m pytest tests/test_platform.py -v
+uv run python -m pytest tests/test_build.py -v
 uv run python -m pytest tests/test_api_spec.py -v
 uv run python -m pytest tests/test_columns_type_casting.py -v
 

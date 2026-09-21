@@ -14,6 +14,10 @@ from .platform import (
     Platform, SlingPlatformError,
     PlatformJobs, PlatformExecs, PlatformFiles, PlatformConnections,
 )
+from .build import (
+    Build, BuildResult, BuildNode, BuildNodeResult, BuildCompileResult,
+    SlingBuildError,
+)
 
 # Try to import pyarrow, fallback to CSV if not available
 _ARROW_WARNING_SHOWN = False

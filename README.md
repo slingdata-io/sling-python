@@ -532,6 +532,49 @@ print(job["id"])
 ```
 
 
+### Using the `Build` class
+
+Run [Sling Build](https://docs.slingdata.io/concepts/build) SQL model projects — `sling build run|test|list|compile` — and get structured per-model results from the CLI's JSON output.
+
+```python
+from sling import Build, SlingBuildError
+
+build = Build(
+    path="models",                  # project directory with sling_build.yml
+    target="MY_SNOWFLAKE",          # optional; sling_build.yml target wins
+    select=["+stg_users", "tag:daily"],
+    exclude="tmp_*",
+    vars={"start_date": "2024-01-01"},
+    threads=4, full_refresh=False, no_seeds=False, range_param=None,
+    recursive=False, prod=False, schema=None,
+    env={"SLING_STATE": "s3://bucket/state"},
+)
+
+result = build.run()                # materialize, then run declarative tests
+print(result.ok, result.failed, result.skipped, result.rows, result.ok_names)
+for node in result.failed_nodes:    # status == "error"
+    print(node.name, node.error)
+
+# Preview / test without materializing
+nodes = build.list()                # [BuildNode(name, type, table, file)]
+compiled = build.compile()          # .order, .nodes[].sql, .compiled
+tests = build.test()                # declarative data tests only
+
+# Failures: raises SlingBuildError carrying .result, or opt out
+try:
+    build.run()
+except SlingBuildError as e:
+    for node in e.result.failed_nodes:
+        print(node.name, node.error)
+
+result = build.run(raise_on_error=False)
+if not result.success:
+    print(result.exit_code, result.stderr)
+```
+
+`BuildResult` exposes `success` (exit code 0), `exit_code`, `results` (`BuildNodeResult`: `name`, `type`, `status`, `mode`, `duration`, `rows`, `bytes`, `error`), `total` / `ok` / `failed` / `skipped`, `rows` / `bytes`, `ok_names`, and `sub_projects` for a directory of independent builds. Requires sling-cli 1.6+ with `--json` on `build run`; set `SLING_BINARY` to use a local binary.
+
+
 ### Building API Specs with `ApiSpec`
 
 Build [API Spec](https://docs.slingdata.io/concepts/api-specs) YAML files programmatically with type checking and validation. API specs define how Sling extracts data from REST APIs.
@@ -688,6 +731,7 @@ uv sync --group test
 uv run python -m pytest tests/tests.py -v
 uv run python -m pytest tests/test_connection.py -v
 uv run python -m pytest tests/test_platform.py -v
+uv run python -m pytest tests/test_build.py -v
 uv run python -m pytest tests/test_api_spec.py -v
 uv run python -m pytest tests/test_columns_type_casting.py -v
 
