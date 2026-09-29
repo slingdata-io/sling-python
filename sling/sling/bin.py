@@ -166,6 +166,37 @@ def get_sling_version():
     # Default to latest
     return 'latest'
 
+# Set on PATH fallback, so that a child process which is this wrapper does not fall back again.
+_PATH_FALLBACK_ENV = '_SLING_PYTHON_PATH_FALLBACK'
+
+def is_wrapper_launcher(path: str):
+    """Return True if path is the `sling` console script of this Python package"""
+    import sysconfig
+    scripts_dirs = {os.path.dirname(sys.executable)}
+    for scheme in (None, f'{os.name}_user'):
+        try:
+            scripts_dirs.add(sysconfig.get_path('scripts', scheme) if scheme else sysconfig.get_path('scripts'))
+        except KeyError:
+            pass
+    norm = lambda p: os.path.normcase(os.path.realpath(p))
+    real_path = os.path.realpath(path)
+    if norm(os.path.dirname(real_path)) in {norm(d) for d in scripts_dirs if d}:
+        return True
+    try:
+        with open(real_path, 'rb') as f:
+            return f.read(2) == b'#!'  # the Go binary is never a script
+    except OSError:
+        return False
+
+def find_binary_in_path():
+    """Find the sling Go binary in PATH, skipping this wrapper's launcher"""
+    import shutil
+    for dir in os.getenv('PATH', '').split(os.pathsep):
+        path = shutil.which('sling', path=dir) if dir else None
+        if path and not is_wrapper_launcher(path):
+            return path
+    return None
+
 # Get binary path - either from environment variable or download
 SLING_BIN = os.getenv("SLING_BINARY")
 
@@ -174,9 +205,8 @@ if not SLING_BIN:
         version = get_sling_version()
         SLING_BIN = download_binary(version)
     except Exception as e:
-        # Fallback: try to find binary in PATH
-        import shutil
-        SLING_BIN = shutil.which('sling')
+        SLING_BIN = None if os.getenv(_PATH_FALLBACK_ENV) else find_binary_in_path()
         if not SLING_BIN:
-            raise RuntimeError(f"Could not locate or download sling binary: {e}")
+            raise RuntimeError(f"Could not locate or download sling binary: {e}. Set SLING_BINARY to the sling binary path.")
+        os.environ[_PATH_FALLBACK_ENV] = '1'
 
