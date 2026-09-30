@@ -434,12 +434,46 @@ def hooks_to_dict(hooks: List[Union[Hook, dict]]) -> List[dict]:
 
 
 class HookMap:
+  """
+  HookMap holds hooks for each stage.
+
+  In a stream, a stage (e.g. `post`) replaces the default hooks of that stage.
+  The modifiers add to the default hooks: `post_prepend` (YAML `+post`) runs before
+  them, `post_append` (YAML `post+`) runs after them. The YAML keys are also accepted
+  in a dict, e.g. `HookMap(**{'post+': [...]})`.
+  """
   start: List[Union[Hook, dict]]
   end: List[Union[Hook, dict]]
   pre: List[Union[Hook, dict]]
   post: List[Union[Hook, dict]]
   pre_merge: List[Union[Hook, dict]]
   post_merge: List[Union[Hook, dict]]
+  pre_prepend: List[Union[Hook, dict]]
+  pre_append: List[Union[Hook, dict]]
+  post_prepend: List[Union[Hook, dict]]
+  post_append: List[Union[Hook, dict]]
+  pre_merge_prepend: List[Union[Hook, dict]]
+  pre_merge_append: List[Union[Hook, dict]]
+  post_merge_prepend: List[Union[Hook, dict]]
+  post_merge_append: List[Union[Hook, dict]]
+
+  # attribute name => YAML key
+  _keys = {
+    'start': 'start',
+    'end': 'end',
+    'pre_prepend': '+pre',
+    'pre': 'pre',
+    'pre_append': 'pre+',
+    'post_prepend': '+post',
+    'post': 'post',
+    'post_append': 'post+',
+    'pre_merge_prepend': '+pre_merge',
+    'pre_merge': 'pre_merge',
+    'pre_merge_append': 'pre_merge+',
+    'post_merge_prepend': '+post_merge',
+    'post_merge': 'post_merge',
+    'post_merge_append': 'post_merge+',
+  }
 
   def __init__(self, 
               start: List[Union[Hook, dict]] = None,
@@ -448,6 +482,15 @@ class HookMap:
               post: List[Union[Hook, dict]] = None,
               pre_merge: List[Union[Hook, dict]] = None,
               post_merge: List[Union[Hook, dict]] = None,
+              pre_prepend: List[Union[Hook, dict]] = None,
+              pre_append: List[Union[Hook, dict]] = None,
+              post_prepend: List[Union[Hook, dict]] = None,
+              post_append: List[Union[Hook, dict]] = None,
+              pre_merge_prepend: List[Union[Hook, dict]] = None,
+              pre_merge_append: List[Union[Hook, dict]] = None,
+              post_merge_prepend: List[Union[Hook, dict]] = None,
+              post_merge_append: List[Union[Hook, dict]] = None,
+              **modifiers,
               ) -> None:
     self.start = start or []
     self.end = end or []
@@ -455,22 +498,29 @@ class HookMap:
     self.post = post or []
     self.pre_merge = pre_merge or []
     self.post_merge = post_merge or []
-  
+    self.pre_prepend = pre_prepend or []
+    self.pre_append = pre_append or []
+    self.post_prepend = post_prepend or []
+    self.post_append = post_append or []
+    self.pre_merge_prepend = pre_merge_prepend or []
+    self.pre_merge_append = pre_merge_append or []
+    self.post_merge_prepend = post_merge_prepend or []
+    self.post_merge_append = post_merge_append or []
+
+    # YAML modifier keys, e.g. '+post' or 'post+'
+    attrs = {key: attr for attr, key in self._keys.items() if key != attr}
+    for key, hooks in modifiers.items():
+      if key not in attrs:
+        raise TypeError(f"HookMap got an unexpected hook key '{key}'")
+      setattr(self, attrs[key], hooks or [])
+
   def to_dict(self) -> dict:
     """Convert HookMap to dictionary for serialization"""
     result = {}
-    if self.start:
-      result['start'] = hooks_to_dict(self.start)
-    if self.end:
-      result['end'] = hooks_to_dict(self.end)
-    if self.pre:
-      result['pre'] = hooks_to_dict(self.pre)
-    if self.post:
-      result['post'] = hooks_to_dict(self.post)
-    if self.pre_merge:
-      result['pre_merge'] = hooks_to_dict(self.pre_merge)
-    if self.post_merge:
-      result['post_merge'] = hooks_to_dict(self.post_merge)
+    for attr, key in self._keys.items():
+      hooks = getattr(self, attr)
+      if hooks:
+        result[key] = hooks_to_dict(hooks)
     return result
 
 # Step aliases for all hook classes

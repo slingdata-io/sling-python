@@ -468,6 +468,57 @@ def test_replication_with_dict_hooks_json_serialization():
     # Clean up
     os.remove(replication.temp_file)
 
+def test_hook_map_modifiers():
+    """Test HookMap modifiers ("+stage" / "stage+") from keywords and YAML keys"""
+    from sling.hooks import HookLog
+
+    # keyword names
+    hooks = HookMap(
+        pre_prepend=[HookLog(message="pre_prepend")],
+        post_append=[HookLog(message="post_append")],
+        post_merge_prepend=[{"type": "log", "message": "post_merge_prepend"}],
+    )
+    assert hooks.to_dict() == {
+        "+pre": [{"type": "log", "message": "pre_prepend"}],
+        "post+": [{"type": "log", "message": "post_append"}],
+        "+post_merge": [{"type": "log", "message": "post_merge_prepend"}],
+    }
+
+    # YAML keys in a dict
+    stream = ReplicationStream(hooks={
+        "+pre": [{"type": "log", "message": "a"}],
+        "pre+": [{"type": "log", "message": "b"}],
+        "+post": [{"type": "log", "message": "c"}],
+        "post": [{"type": "log", "message": "d"}],
+        "post+": [{"type": "log", "message": "e"}],
+        "+pre_merge": [{"type": "log", "message": "f"}],
+        "pre_merge+": [{"type": "log", "message": "g"}],
+        "post_merge+": [{"type": "log", "message": "h"}],
+    })
+    assert stream.hooks.pre_prepend == [{"type": "log", "message": "a"}]
+    assert stream.hooks.post_append == [{"type": "log", "message": "e"}]
+    assert set(stream.hooks.to_dict().keys()) == {
+        "+pre", "pre+", "+post", "post", "post+", "+pre_merge", "pre_merge+", "post_merge+",
+    }
+
+    # serialized replication keeps the YAML keys
+    replication = Replication(
+        source="local",
+        target="local",
+        defaults=ReplicationStream(hooks={"post": [{"type": "log", "message": "default"}]}),
+        streams={"file:///tmp/a.csv": ReplicationStream(hooks={"post+": [{"type": "log", "message": "own"}]})},
+    )
+    replication._prep_cmd()
+    with open(replication.temp_file, 'r') as f:
+        config = json.load(f)
+    os.remove(replication.temp_file)
+    assert config["defaults"]["hooks"] == {"post": [{"type": "log", "message": "default"}]}
+    assert config["streams"]["file:///tmp/a.csv"]["hooks"] == {"post+": [{"type": "log", "message": "own"}]}
+
+    # unknown keys fail
+    with pytest.raises(TypeError, match="postt\\+"):
+        HookMap(**{"postt+": []})
+
 def test_pipeline():
     # Test basic initialization
     pipeline = Pipeline(
