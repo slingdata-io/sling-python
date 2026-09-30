@@ -519,6 +519,41 @@ def test_hook_map_modifiers():
     with pytest.raises(TypeError, match="postt\\+"):
         HookMap(**{"postt+": []})
 
+def test_replication_stream_unset_keys_use_defaults():
+    """Unset stream keys are left out of the JSON, so Sling applies the defaults"""
+    replication = Replication(
+        source="postgres",
+        target="snowflake",
+        defaults=ReplicationStream(
+            mode=Mode.INCREMENTAL,
+            object="analytics.{stream_table}",
+            primary_key=["id"],
+            target_options={"table_keys": {"cluster": ["id"]}},
+        ),
+        streams={
+            "public.users": ReplicationStream(),
+            "public.orders": ReplicationStream(select=[], where="1=1", disabled=False, source_options={"header": False}),
+        },
+    )
+    replication._prep_cmd()
+    with open(replication.temp_file, 'r') as f:
+        config = json.load(f)
+    os.remove(replication.temp_file)
+
+    # no nulls and no empty lists or dicts for unset keys
+    assert config["streams"]["public.users"] == {"source_options": {}, "target_options": {}}
+
+    # explicit values stay, also when empty or false
+    orders = config["streams"]["public.orders"]
+    assert orders["select"] == []
+    assert orders["where"] == "1=1"
+    assert orders["disabled"] is False
+    assert orders["source_options"] == {"header": False}
+
+    # defaults keep their values
+    assert config["defaults"]["primary_key"] == ["id"]
+    assert config["defaults"]["target_options"] == {"table_keys": {"cluster": ["id"]}}
+
 def test_pipeline():
     # Test basic initialization
     pipeline = Pipeline(
@@ -1239,8 +1274,8 @@ class TestCDCOptions:
         users = config["streams"]["public.users"]
         assert users["change_capture_options"] == {"soft_delete": True}
 
-        # a stream without CDC options stays null, which Sling reads as unset
-        assert config["streams"]["public.orders"]["change_capture_options"] is None
+        # a stream without CDC options leaves out the key, which Sling reads as unset
+        assert "change_capture_options" not in config["streams"]["public.orders"]
 
         os.remove(replication.temp_file)
 

@@ -141,13 +141,13 @@ class ReplicationStream:
           description: str = None,
           mode: Union[Mode, str] = None,
           object: str = None,
-          select: List[str] = [],
-          files: List[str] = [],
+          select: List[str] = None,
+          files: List[str] = None,
           where: str = None,
-          primary_key: List[str] = [],
+          primary_key: List[str] = None,
           update_key: str = None,
           sql: str = None,
-          tags: List[str] = [],
+          tags: List[str] = None,
           source_options: Union[SourceOptions, dict]={},
           target_options: Union[TargetOptions, dict]={},
           change_capture_options: Union[CDCOptions, dict] = None,
@@ -191,6 +191,10 @@ class ReplicationStream:
     self.change_capture_options = change_capture_options
 
     self.disabled = disabled
+
+  def to_dict(self) -> dict:
+    """Returns the keys which are set. Sling applies `defaults` to the other keys."""
+    return {k: v for k, v in self.__dict__.items() if v is not None}
 
   def enable(self):
     self.disabled = False

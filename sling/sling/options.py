@@ -57,7 +57,7 @@ class SourceOptions:
               limit: int = None,
               offset: int = None,
               encoding: Union[Encoding, str] = None,
-              columns: dict = {},
+              columns: dict = None,
               transforms: list = None,
               ) -> None:
     self.empty_as_null = empty_as_null
@@ -86,6 +86,10 @@ class SourceOptions:
     self.encoding = encoding
     self.columns = columns
     self.transforms = transforms
+
+  def to_dict(self) -> dict:
+    """Returns the options which are set. Unset options keep the Sling default."""
+    return {k: v for k, v in self.__dict__.items() if v is not None}
 
 
 class TargetOptions:
@@ -140,7 +144,7 @@ class TargetOptions:
               encoding: Union[Encoding, str] = None,
               direct_insert: bool = None,
               isolation_level: Union[IsolationLevel, str] = None,
-              table_keys: dict = {},
+              table_keys: dict = None,
               table_ddl: str = None,
               table_tmp: str = None,
               pre_sql: str = None,
@@ -173,6 +177,10 @@ class TargetOptions:
     self.table_tmp = table_tmp
     self.pre_sql = pre_sql
     self.post_sql = post_sql
+
+  def to_dict(self) -> dict:
+    """Returns the options which are set. Unset options keep the Sling default."""
+    return {k: v for k, v in self.__dict__.items() if v is not None}
 
 
 class CDCOptions:
