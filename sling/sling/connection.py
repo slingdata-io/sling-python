@@ -144,7 +144,24 @@ class Connection:
             )
         # On success, payload is the last JSON line on stdout (only one is emitted today,
         # but slice defensively in case future versions add log lines to stdout).
-        payload = json.loads(stdout.strip().splitlines()[-1])
+        lines = stdout.strip().splitlines()
+        if not lines:
+            raise SlingConnectionError(
+                f"`sling conns exec {self.name}` succeeded (exit {code}) "
+                f"but returned no output"
+            )
+        try:
+            payload = json.loads(lines[-1])
+        except json.JSONDecodeError as e:
+            raise SlingConnectionError(
+                f"could not parse JSON payload from `sling conns exec {self.name}` "
+                f"(exit {code}): {e}"
+            ) from e
+        if not isinstance(payload, dict):
+            raise SlingConnectionError(
+                f"unexpected payload from `sling conns exec {self.name}` "
+                f"(exit {code}): expected a JSON object, got {type(payload).__name__}"
+            )
         result = QueryResult(
             fields=payload.get("fields") or [],
             rows=payload.get("rows") or [],
