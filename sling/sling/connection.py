@@ -132,7 +132,10 @@ class Connection:
                     f"{stderr_b.decode('utf-8', errors='replace').strip() or '(no error message)'}"
                 )
             import io
+            import pyarrow as pa
             import pyarrow.ipc as ipc
+            if not stdout_b:  # DDL and DML statements return no rows
+                return pa.table({})
             return ipc.open_stream(io.BytesIO(stdout_b)).read_all()
 
         stdout_b, stderr_b, code = _run_sling(
@@ -147,7 +150,17 @@ class Connection:
             )
         # On success, payload is the last JSON line on stdout (only one is emitted today,
         # but slice defensively in case future versions add log lines to stdout).
-        payload = json.loads(stdout.strip().splitlines()[-1])
+        # DDL and DML statements print nothing.
+        lines = stdout.strip().splitlines()
+        try:
+            payload = json.loads(lines[-1]) if lines else {}
+        except json.JSONDecodeError:
+            payload = None
+        if not isinstance(payload, dict):
+            raise SlingConnectionError(
+                f"unexpected output from `sling conns exec {self.name}` (exit {code}): "
+                f"{lines[-1][:500]!r} stderr={stderr.strip()!r}"
+            )
         result = QueryResult(
             fields=payload.get("fields") or [],
             rows=payload.get("rows") or [],

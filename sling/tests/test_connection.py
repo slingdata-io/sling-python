@@ -27,6 +27,27 @@ class TestConnectionAPI:
         with pytest.raises(ValueError, match="return_type"):
             Connection("X").exec("select 1", return_type="numpy")
 
+    @pytest.mark.parametrize("stdout, expected", [
+        (b"", []),  # DDL and DML print nothing
+        (b"\n", []),
+        (b'{"fields":["a"],"rows":[[1]]}\n', [{"a": 1}]),
+        (b'log line\n{"fields":["a"],"rows":[[1]]}\n', [{"a": 1}]),
+    ])
+    def test_exec_payload(self, monkeypatch, stdout, expected):
+        monkeypatch.setattr("sling.connection._run_sling", lambda cmd, output="json": (stdout, b"", 0))
+        assert Connection("X").exec("select 1") == expected
+
+    @pytest.mark.parametrize("stdout", [b"not json\n", b"[1, 2]\n", b'"text"\n'])
+    def test_exec_bad_payload_raises(self, monkeypatch, stdout):
+        monkeypatch.setattr("sling.connection._run_sling", lambda cmd, output="json": (stdout, b"", 0))
+        with pytest.raises(SlingConnectionError, match="unexpected output"):
+            Connection("X").exec("select 1")
+
+    @pytest.mark.skipif(not HAS_ARROW, reason="pyarrow not installed")
+    def test_exec_arrow_no_output(self, monkeypatch):
+        monkeypatch.setattr("sling.connection._run_sling", lambda cmd, output="json": (b"", b"", 0))
+        assert Connection("X").exec("drop table t", return_type="arrow").num_rows == 0
+
 # --- Sling/Replication accept Connection instance ---
 class TestIntegration:
     def test_sling_accepts_connection(self):
@@ -71,6 +92,12 @@ class TestConnectionExec:
 
     def test_empty_result(self):
         assert Connection("DUCKDB").exec("select 1 as a where 1=0") == []
+
+    def test_statement_without_rows(self):
+        sql = "drop table if exists sling_python_no_such_table"
+        assert Connection("DUCKDB").exec(sql) == []
+        if HAS_ARROW:
+            assert Connection("DUCKDB").exec(sql, return_type="arrow").num_rows == 0
 
     @pytest.mark.skipif(not HAS_PANDAS, reason="pandas not installed")
     def test_dataframe(self):
