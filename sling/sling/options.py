@@ -12,6 +12,7 @@ class SourceOptions:
   chunk_size: str
   chunk_count: int
   chunk_expr: str
+  parallel_scan: int
   compression: Union[Compression, str]
   format: Union[Format, str]
   null_if: str
@@ -40,6 +41,7 @@ class SourceOptions:
               chunk_size: str = None,
               chunk_count: int = None,
               chunk_expr: str = None,
+              parallel_scan: int = None,
               compression: Union[Compression, str] = None,
               format: Union[Format, str] = None,
               null_if: str = None,
@@ -67,6 +69,7 @@ class SourceOptions:
     self.chunk_size = chunk_size
     self.chunk_count = chunk_count
     self.chunk_expr = chunk_expr
+    self.parallel_scan = parallel_scan
     self.compression = compression
     self.format = format
     self.null_if = null_if
@@ -114,6 +117,7 @@ class TargetOptions:
   adjust_column_type: bool
   encoding: Union[Encoding, str]
   direct_insert: bool
+  insert_concurrency: int
   isolation_level: Union[IsolationLevel, str]
   table_keys: dict
   table_ddl: str
@@ -143,6 +147,7 @@ class TargetOptions:
               adjust_column_type: bool = None,
               encoding: Union[Encoding, str] = None,
               direct_insert: bool = None,
+              insert_concurrency: int = None,
               isolation_level: Union[IsolationLevel, str] = None,
               table_keys: dict = None,
               table_ddl: str = None,
@@ -171,6 +176,7 @@ class TargetOptions:
     self.adjust_column_type = adjust_column_type
     self.encoding = encoding
     self.direct_insert = direct_insert
+    self.insert_concurrency = insert_concurrency
     self.isolation_level = isolation_level
     self.table_keys = table_keys
     self.table_ddl = table_ddl

@@ -444,7 +444,7 @@ class Task:
     """
     Runs the task and streams the stdout output as iterable. `env` accepts a dictionary which defines the environment. `stdin` can be any stream-like object, which will be used as input stream.
     """
-    cmd = self._prep_file()
+    cmd = self._prep_cmd()
 
     lines = []
     try:
@@ -757,7 +757,6 @@ class Sling:
         pipeline: Optional[str] = None,
         directory: Optional[str] = None,
         job: Optional[str] = None,
-        config: Optional[str] = None,
         
         # Logging
         debug: bool = False,
@@ -798,7 +797,6 @@ class Sling:
             pipeline: Pipeline config file path
             directory: Directory path to run nested replications/pipelines
             job: Job key from sling_project.yml to run locally
-            config: Task config string or file (deprecated)
             debug: Enable debug logging
             trace: Enable trace logging
             home_dir: Sling home directory override
@@ -829,7 +827,6 @@ class Sling:
         self.pipeline = pipeline
         self.directory = directory
         self.job = job
-        self.config = config
         self.debug = debug
         self.trace = trace
         self.home_dir = home_dir
@@ -866,8 +863,6 @@ class Sling:
             cmd.extend(["--directory", self.directory])
         if self.job:
             cmd.extend(["--job", self.job])
-        if self.config:
-            cmd.extend(["-c", self.config])
         
         # Handle source configuration
         if self.input is not None:
